@@ -4,24 +4,22 @@ const { Sequelize, DataTypes } = require('sequelize');
 const sequelize = new Sequelize('Procuro', 'postgres', 'Jyothika@5226', {
   host: 'localhost',
   dialect: 'postgres',
-  logging: false, 
+  logging: false,
 });
 
 // ==========================================
 // 2. DEFINE MODELS (TABLES)
 // ==========================================
 
-// 🔹 IMPROVEMENT 3: Added allowNull: false (NOT NULL)
 const User = sequelize.define('User', {
   user_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   name: { type: DataTypes.STRING, allowNull: false },
   email: { type: DataTypes.STRING, allowNull: false, unique: true },
   password_hash: { type: DataTypes.TEXT, allowNull: false },
-  role: { type: DataTypes.STRING(50), allowNull: false }, 
+  role: { type: DataTypes.STRING(50), allowNull: false },
   status: { type: DataTypes.STRING(50), defaultValue: 'ACTIVE' }
 }, { tableName: 'USERS', createdAt: 'created_at', updatedAt: false });
 
-// 🔹 IMPROVEMENT 1: Added DEPARTMENT_BUDGET Table
 const DepartmentBudget = sequelize.define('DepartmentBudget', {
   budget_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   department: { type: DataTypes.STRING(100), unique: true, allowNull: false },
@@ -39,10 +37,32 @@ const AuditLog = sequelize.define('AuditLog', {
 
 const PurchaseRequest = sequelize.define('PurchaseRequest', {
   pr_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+
   department: { type: DataTypes.STRING(100), allowNull: false },
+
+  // Employee form fields
+  item_name: { type: DataTypes.STRING, allowNull: false },
+  item_details: { type: DataTypes.TEXT },
+  quantity: { type: DataTypes.INTEGER, allowNull: false },
+  estimated_unit_price: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
+  category: { type: DataTypes.STRING(100), allowNull: false },
+  required_by: { type: DataTypes.DATEONLY, allowNull: false },
+  delivery_location: { type: DataTypes.STRING(200), allowNull: false },
+  priority: { type: DataTypes.ENUM('LOW', 'MEDIUM', 'HIGH'), allowNull: false },
+
   total_amount: { type: DataTypes.DECIMAL(12, 2) },
-  // 🔹 IMPROVEMENT 2: ENUM-like Status Control
-  status: { 
+
+  // Reason for rejection / manager notes
+  manager_comment: { type: DataTypes.TEXT },
+
+  // Optional field for clarification message (if you want it stored)
+  clarification_message: { type: DataTypes.TEXT },
+
+  // Mark as draft or final
+  is_draft: { type: DataTypes.BOOLEAN, defaultValue: false },
+
+  // Status enum
+  status: {
     type: DataTypes.ENUM(
       'PENDING_MANAGER',
       'PENDING_FINANCE',
@@ -55,7 +75,7 @@ const PurchaseRequest = sequelize.define('PurchaseRequest', {
       'REJECTED'
     ),
     allowNull: false,
-    defaultValue: 'PENDING_MANAGER' 
+    defaultValue: 'PENDING_MANAGER'
   }
 }, { tableName: 'PURCHASE_REQUESTS', createdAt: 'created_at', updatedAt: false });
 
@@ -104,61 +124,64 @@ const Payment = sequelize.define('Payment', {
   payment_method: { type: DataTypes.STRING(50) }
 }, { tableName: 'PAYMENTS', timestamps: false });
 
+// NEW: Exception model
+const Exception = sequelize.define('Exception', {
+  exception_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  exception_type: { type: DataTypes.STRING(100), allowNull: false },
+  urgency_level: { type: DataTypes.ENUM('LOW', 'MEDIUM', 'HIGH'), allowNull: false },
+  reason: { type: DataTypes.TEXT, allowNull: false },
+  document_path: { type: DataTypes.STRING(300) }
+}, { tableName: 'EXCEPTIONS', createdAt: 'created_at', updatedAt: false });
+
 // ==========================================
 // 3. DEFINE RELATIONSHIPS (FOREIGN KEYS)
 // ==========================================
 
-// Users <-> Audit Logs
 User.hasMany(AuditLog, { foreignKey: 'user_id' });
 AuditLog.belongsTo(User, { foreignKey: 'user_id' });
 
-// Users (Employees) <-> Purchase Requests
 User.hasMany(PurchaseRequest, { foreignKey: 'employee_id' });
 PurchaseRequest.belongsTo(User, { foreignKey: 'employee_id' });
 
-// Purchase Requests <-> Items
 PurchaseRequest.hasMany(PurchaseRequestItem, { foreignKey: 'pr_id', onDelete: 'CASCADE' });
 PurchaseRequestItem.belongsTo(PurchaseRequest, { foreignKey: 'pr_id' });
 
-// Purchase Requests <-> RFQ
 PurchaseRequest.hasOne(RFQ, { foreignKey: 'pr_id' });
 RFQ.belongsTo(PurchaseRequest, { foreignKey: 'pr_id' });
 
-// Purchase Requests <-> AI Recommendations
 PurchaseRequest.hasMany(AIRecommendation, { foreignKey: 'pr_id' });
 AIRecommendation.belongsTo(PurchaseRequest, { foreignKey: 'pr_id' });
 
-// Users (Suppliers) <-> AI Recommendations
 User.hasMany(AIRecommendation, { foreignKey: 'suggested_supplier' });
 AIRecommendation.belongsTo(User, { foreignKey: 'suggested_supplier' });
 
-// RFQ <-> Quotations
 RFQ.hasMany(Quotation, { foreignKey: 'rfq_id' });
 Quotation.belongsTo(RFQ, { foreignKey: 'rfq_id' });
 
-// Users (Suppliers) <-> Quotations
 User.hasMany(Quotation, { foreignKey: 'supplier_id' });
 Quotation.belongsTo(User, { foreignKey: 'supplier_id' });
 
-// RFQ <-> Purchase Orders
 RFQ.hasOne(PurchaseOrder, { foreignKey: 'rfq_id' });
 PurchaseOrder.belongsTo(RFQ, { foreignKey: 'rfq_id' });
 
-// Users (Suppliers) <-> Purchase Orders
 User.hasMany(PurchaseOrder, { foreignKey: 'supplier_id' });
 PurchaseOrder.belongsTo(User, { foreignKey: 'supplier_id' });
 
-// Purchase Orders <-> Invoices
 PurchaseOrder.hasMany(Invoice, { foreignKey: 'po_id' });
 Invoice.belongsTo(PurchaseOrder, { foreignKey: 'po_id' });
 
-// Users (Suppliers) <-> Invoices
 User.hasMany(Invoice, { foreignKey: 'supplier_id' });
 Invoice.belongsTo(User, { foreignKey: 'supplier_id' });
 
-// Invoices <-> Payments
 Invoice.hasMany(Payment, { foreignKey: 'invoice_id' });
 Payment.belongsTo(Invoice, { foreignKey: 'invoice_id' });
+
+// NEW: relations for Exception
+PurchaseRequest.hasMany(Exception, { foreignKey: 'pr_id' });
+Exception.belongsTo(PurchaseRequest, { foreignKey: 'pr_id' });
+
+User.hasMany(Exception, { foreignKey: 'employee_id' });
+Exception.belongsTo(User, { foreignKey: 'employee_id' });
 
 // ==========================================
 // 4. SYNC DATABASE
@@ -168,10 +191,8 @@ const initDatabase = async () => {
   try {
     await sequelize.authenticate();
     console.log('Sequelize connected to PostgreSQL successfully.');
-    
-    // Using alter: true will modify your existing tables to match these new strict rules
-    await sequelize.sync({ alter: true }); 
-    console.log('Database synced. Added Budget table, ENUMs, and NOT NULL constraints.');
+    await sequelize.sync({ alter: true });
+    console.log('Database synced. Added new fields and Exception table.');
   } catch (error) {
     console.error('Unable to connect to the database:', error);
   }
@@ -180,6 +201,17 @@ const initDatabase = async () => {
 initDatabase();
 
 module.exports = {
-  sequelize, User, DepartmentBudget, AuditLog, PurchaseRequest, PurchaseRequestItem, 
-  RFQ, Quotation, AIRecommendation, PurchaseOrder, Invoice, Payment
+  sequelize,
+  User,
+  DepartmentBudget,
+  AuditLog,
+  PurchaseRequest,
+  PurchaseRequestItem,
+  RFQ,
+  Quotation,
+  AIRecommendation,
+  PurchaseOrder,
+  Invoice,
+  Payment,
+  Exception
 };
