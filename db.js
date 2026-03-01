@@ -1,7 +1,7 @@
 const { Sequelize, DataTypes } = require('sequelize');
 
 // 1. Initialize Connection
-const sequelize = new Sequelize('Procuro', 'postgres', 'Jyothika@5226', {
+const sequelize = new Sequelize('Procuro', 'postgres', '1234', {
   host: 'localhost',
   dialect: 'postgres',
   logging: false,
@@ -63,20 +63,20 @@ const PurchaseRequest = sequelize.define('PurchaseRequest', {
 
   // Status enum
   status: {
-    type: DataTypes.ENUM(
-      'PENDING_MANAGER',
-      'PENDING_FINANCE',
-      'PENDING_PROCUREMENT',
-      'RFQ_SENT',
-      'SUPPLIER_SELECTED',
-      'ORDER_PLACED',
-      'DELIVERED',
-      'COMPLETED',
-      'REJECTED'
-    ),
-    allowNull: false,
-    defaultValue: 'PENDING_MANAGER'
-  }
+  type: DataTypes.ENUM(
+    'PENDING_MANAGER',
+    'PENDING_FINANCE',   
+    'PENDING_PROCUREMENT',
+    'RFQ_SENT',
+    'SUPPLIER_SELECTED',
+    'ORDER_PLACED',
+    'DELIVERED',
+    'COMPLETED',
+    'REJECTED'
+  ),
+  allowNull: false,
+  defaultValue: 'PENDING_MANAGER'
+}
 }, { tableName: 'PURCHASE_REQUESTS', createdAt: 'created_at', updatedAt: false });
 
 const PurchaseRequestItem = sequelize.define('PurchaseRequestItem', {
