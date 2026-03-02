@@ -1,5 +1,5 @@
 require('dotenv').config();
-
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const express = require('express');
 const cors = require('cors');
 
@@ -26,6 +26,14 @@ app.use('/finance', financeRoutes);
 app.use('/exceptions', exceptionRoutes);
 app.use('/procurement', procurementRoutes);
 app.use('/supplier', supplierRoutes);
+
+// Simple AI test route
+app.get('/ai/test-key', (req, res) => {
+  if (!process.env.OPENAI_API_KEY) {  // or GEMINI_API_KEY
+    return res.status(500).json({ ok: false, message: 'AI key missing in env' });
+  }
+  return res.json({ ok: true, message: 'AI key is loaded in backend' });
+});
 
 app.get('/', (req, res) => res.json({ message: 'Procurement API running' }));
 

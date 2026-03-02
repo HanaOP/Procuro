@@ -1,7 +1,7 @@
 const { Sequelize, DataTypes } = require('sequelize');
 
 // 1. Initialize Connection
-const sequelize = new Sequelize('erp_procuro', 'postgres', 'hana123', {
+const sequelize = new Sequelize('Procuro', 'postgres', 'Jyothika@5226', {
   host: 'localhost',
   dialect: 'postgres',
   logging: false,
@@ -17,9 +17,19 @@ const User = sequelize.define('User', {
   email: { type: DataTypes.STRING, allowNull: false, unique: true },
   password_hash: { type: DataTypes.TEXT, allowNull: false },
   role: { type: DataTypes.STRING(50), allowNull: false },
-  status: { type: DataTypes.STRING(50), defaultValue: 'ACTIVE' }
-}, { tableName: 'USERS', createdAt: 'created_at', updatedAt: false });
+  status: { type: DataTypes.STRING(50), defaultValue: 'ACTIVE' },
 
+  // OTP + verification fields
+  is_verified: { type: DataTypes.BOOLEAN, defaultValue: false },
+  otp_code: { type: DataTypes.STRING, allowNull: true },
+  otp_expires_at: { type: DataTypes.DATE, allowNull: true }
+}, {
+  tableName: 'USERS',
+  createdAt: 'created_at',
+  updatedAt: false
+});
+
+// (all your other models unchanged)
 const DepartmentBudget = sequelize.define('DepartmentBudget', {
   budget_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   department: { type: DataTypes.STRING(100), unique: true, allowNull: false },
@@ -37,7 +47,6 @@ const AuditLog = sequelize.define('AuditLog', {
 
 const PurchaseRequest = sequelize.define('PurchaseRequest', {
   pr_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-
   department: { type: DataTypes.STRING(100), allowNull: false },
 
   // Employee form fields
@@ -63,20 +72,20 @@ const PurchaseRequest = sequelize.define('PurchaseRequest', {
 
   // Status enum
   status: {
-  type: DataTypes.ENUM(
-    'PENDING_MANAGER',
-    'PENDING_FINANCE',   
-    'PENDING_PROCUREMENT',
-    'RFQ_SENT',
-    'SUPPLIER_SELECTED',
-    'ORDER_PLACED',
-    'DELIVERED',
-    'COMPLETED',
-    'REJECTED'
-  ),
-  allowNull: false,
-  defaultValue: 'PENDING_MANAGER'
-}
+    type: DataTypes.ENUM(
+      'PENDING_MANAGER',
+      'PENDING_FINANCE',
+      'PENDING_PROCUREMENT',
+      'RFQ_SENT',
+      'SUPPLIER_SELECTED',
+      'ORDER_PLACED',
+      'DELIVERED',
+      'COMPLETED',
+      'REJECTED'
+    ),
+    allowNull: false,
+    defaultValue: 'PENDING_MANAGER'
+  }
 }, { tableName: 'PURCHASE_REQUESTS', createdAt: 'created_at', updatedAt: false });
 
 const PurchaseRequestItem = sequelize.define('PurchaseRequestItem', {
