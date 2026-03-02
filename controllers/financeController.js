@@ -2,7 +2,7 @@ const { DepartmentBudget, PurchaseRequest } = require('../db');
 
 async function addBudget(req, res) {
   try {
-    if (req.user.role !== 'FINANCE_OFFICER') return res.status(403).json({ error: 'Only finance officers can add budget' });
+    if (req.user.role !== 'FINANCE') return res.status(403).json({ error: 'Only finance officers can add budget' });
     const { department, total_allocated, financial_year } = req.body;
     if (!department || !total_allocated || !financial_year) return res.status(400).json({ error: 'All fields are required' });
 
@@ -16,7 +16,7 @@ async function addBudget(req, res) {
 
 async function pendingRequests(req, res) {
   try {
-    if (req.user.role !== 'FINANCE_OFFICER') return res.status(403).json({ error: 'Only finance officers can view this' });
+    if (req.user.role !== 'FINANCE') return res.status(403).json({ error: 'Only finance officers can view this' });
     const requests = await PurchaseRequest.findAll({ where: { status: 'PENDING_FINANCE' }, order: [['created_at', 'DESC']] });
     res.json(requests);
   } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }); }
@@ -26,13 +26,17 @@ async function approveRequest(req, res) {
   try {
     const { role } = req.user;
     const pr_id = req.params.id;
-    if (role !== 'FINANCE_OFFICER') return res.status(403).json({ error: 'Only finance officers can approve' });
+    if (role !== 'FINANCE') return res.status(403).json({ error: 'Only finance officers can approve' });
 
     const pr = await PurchaseRequest.findByPk(pr_id);
     if (!pr) return res.status(404).json({ error: 'Request not found' });
     if (pr.status !== 'PENDING_FINANCE') return res.status(400).json({ error: 'Not pending finance approval' });
 
-    const budget = await DepartmentBudget.findOne({ where: { department: pr.department } });
+    const { Op } = require('sequelize');
+
+const budget = await DepartmentBudget.findOne({where: {department: { [Op.iLike]: pr.department } // case-insensitive match
+  }
+});
     if (!budget) return res.status(404).json({ error: 'Department budget not found' });
     if (parseFloat(budget.remaining_amount) < parseFloat(pr.total_amount)) return res.status(400).json({ error: 'Insufficient budget' });
 
@@ -50,7 +54,7 @@ async function rejectRequest(req, res) {
   try {
     const { role } = req.user;
     const pr_id = req.params.id;
-    if (role !== 'FINANCE_OFFICER') return res.status(403).json({ error: 'Only finance officers can reject' });
+    if (role !== 'FINANCE') return res.status(403).json({ error: 'Only finance officers can reject' });
 
     const pr = await PurchaseRequest.findByPk(pr_id);
     if (!pr) return res.status(404).json({ error: 'Request not found' });

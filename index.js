@@ -12,6 +12,7 @@ const employeeRoutes = require('./routes/employee');
 const managerRoutes = require('./routes/manager');
 const financeRoutes = require('./routes/finance');
 const exceptionRoutes = require('./routes/exception');
+const procurementRoutes = require('./routes/procurement');
 
 app.use(cors());
 app.use(express.json());
@@ -21,6 +22,7 @@ app.use('/employee', employeeRoutes);
 app.use('/manager', managerRoutes);
 app.use('/finance', financeRoutes);
 app.use('/exceptions', exceptionRoutes);
+app.use('/procurement', procurementRoutes);
 
 app.get('/', (req, res) => res.json({ message: 'Procurement API running' }));
 
