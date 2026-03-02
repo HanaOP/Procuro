@@ -1,32 +1,132 @@
-const { PurchaseRequest } = require('../db');
+const { PurchaseRequest, DepartmentBudget, User } = require('../db');
+const { Op } = require('sequelize');
 
 async function createRequest(req, res) {
   try {
     const { user_id, role } = req.user;
     const isDraft = req.query.draft === 'true';
-    if (role !== 'EMPLOYEE') return res.status(403).json({ error: 'Only employees can create requests' });
 
-    const { item_name, item_details, quantity, estimated_unit_price, category, required_by, delivery_location, priority, department } = req.body;
-    if (!item_name || (!quantity && quantity !== 0) || (!estimated_unit_price && estimated_unit_price !== 0) || !category || !required_by || !delivery_location || !priority || !department) {
+    if (role !== 'EMPLOYEE')
+      return res.status(403).json({ error: 'Only employees can create requests' });
+
+    const {
+      item_name,
+      item_details,
+      quantity,
+      estimated_unit_price,
+      category,
+      required_by,
+      delivery_location,
+      priority,
+      department
+    } = req.body;
+
+    // Required Fields Check
+    if (
+      !item_name ||
+      quantity === undefined ||
+      estimated_unit_price === undefined ||
+      !category ||
+      !required_by ||
+      !delivery_location ||
+      !priority ||
+      !department
+    ) {
       return res.status(400).json({ error: 'Please fill all required fields' });
     }
 
-    if (typeof quantity !== 'number' || quantity < 1 || quantity > 100) return res.status(400).json({ error: 'Quantity must be a number between 1 and 100' });
-    if (typeof estimated_unit_price !== 'number' || estimated_unit_price <= 0) return res.status(400).json({ error: 'Estimated unit price must be a positive number' });
+    // Quantity Limit (1–20)
+    if (typeof quantity !== 'number' || quantity < 1 || quantity > 100) {
+      return res.status(400).json({
+        error: 'Quantity must be between 1 and 20'
+      });
+    }
 
+    // Price Validation
+    if (typeof estimated_unit_price !== 'number' || estimated_unit_price <= 0) {
+      return res.status(400).json({
+        error: 'Estimated unit price must be positive'
+      });
+    }
+
+    // Priority Check
     const allowedPriorities = ['LOW', 'MEDIUM', 'HIGH'];
-    if (!allowedPriorities.includes(priority)) return res.status(400).json({ error: 'Priority must be LOW, MEDIUM, or HIGH' });
+    if (!allowedPriorities.includes(priority)) {
+      return res.status(400).json({
+        error: 'Priority must be LOW, MEDIUM, or HIGH'
+      });
+    }
 
-    const today = new Date(); today.setHours(0,0,0,0);
+    // Future Date Validation (strict)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const reqDate = new Date(required_by);
-    if (isNaN(reqDate.getTime())) return res.status(400).json({ error: 'required_by must be a valid date (YYYY-MM-DD)' });
-    reqDate.setHours(0,0,0,0);
-    if (reqDate < today) return res.status(400).json({ error: 'required_by date cannot be in the past' });
+    if (isNaN(reqDate.getTime())) {
+      return res.status(400).json({
+        error: 'required_by must be valid date (YYYY-MM-DD)'
+      });
+    }
+
+    reqDate.setHours(0, 0, 0, 0);
+
+    if (reqDate <= today) {
+      return res.status(400).json({
+        error: 'required_by must be a future date'
+      });
+    }
+
+    // Ensure employee can only request for their department
+    const employee = await User.findByPk(user_id);
+    if (employee.department !== department) {
+      return res.status(403).json({
+        error: 'You can only create requests for your own department'
+      });
+    }
 
     const total_amount = quantity * estimated_unit_price;
-    const pr = await PurchaseRequest.create({ employee_id: user_id, department, item_name, item_details: item_details || '', quantity, estimated_unit_price, category, required_by: reqDate, delivery_location, priority, total_amount, is_draft: isDraft, status: 'PENDING_MANAGER' });
 
-    return res.status(201).json({ message: 'Purchase request submitted', request: pr });
+    // Budget Check
+    const budget = await DepartmentBudget.findOne({
+      where: {
+        department: { [Op.iLike]: department }
+      }
+    });
+
+    if (!budget) {
+      return res.status(400).json({
+        error: 'No budget allocated for this department'
+      });
+    }
+
+    if (total_amount > parseFloat(budget.remaining_amount)) {
+      return res.status(400).json({
+        error: `Request exceeds remaining budget (${budget.remaining_amount})`
+      });
+    }
+
+    //  Create Request
+    const pr = await PurchaseRequest.create({
+      employee_id: user_id,
+      department,
+      item_name,
+      item_details: item_details || '',
+      quantity,
+      estimated_unit_price,
+      category,
+      required_by: reqDate,
+      delivery_location,
+      priority,
+      total_amount,
+      is_draft: isDraft,
+      status: isDraft ? 'DRAFT' : 'PENDING_MANAGER'
+    });
+
+    return res.status(201).json({
+      message: isDraft ? 'Draft saved' : 'Purchase request submitted',
+      request: pr
+    });
+
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Server error' });

@@ -24,10 +24,10 @@ exports.sendRFQ = async (req, res) => {
   try {
     console.log('📦 req.body:', req.body); // DEBUG LOG
     
-    // ✅ SAFE: Handle undefined req.body
+    //  SAFE: Handle undefined req.body
     const { pr_id, deadline } = req.body || {};
     
-    // ✅ VALIDATION
+    //  VALIDATION
     if (!pr_id) {
       return res.status(400).json({ error: 'pr_id is required' });
     }
@@ -58,7 +58,7 @@ exports.sendRFQ = async (req, res) => {
     });
     
   } catch (err) {
-    console.error('❌ sendRFQ error:', err);
+    console.error(' sendRFQ error:', err);
     res.status(500).json({ error: err.message });
   }
 };
