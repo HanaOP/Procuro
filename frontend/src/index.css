@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --amber: #f59e0b;
+  --amber-dim: #d97706;
+  --surface-950: #0d0d0f;
+  --surface-900: #141417;
+  --surface-800: #1c1c21;
+  --surface-700: #252529;
+  --surface-600: #2e2e34;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--surface-950);
+  color: #e2e8f0;
+  font-family: 'Instrument Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--surface-900); }
+::-webkit-scrollbar-thumb { background: var(--surface-600); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #f59e0b55; }
+
+/* Input base */
+input, select, textarea {
+  font-family: 'Instrument Sans', sans-serif;
+}
+
+/* Selection */
+::selection {
+  background: #f59e0b33;
+  color: #fbbf24;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-amber-500 text-surface-950 font-semibold px-5 py-2.5 text-sm
+           hover:bg-amber-400 active:scale-95 transition-all duration-150
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply border border-surface-600 text-slate-300 font-medium px-5 py-2.5 text-sm
+           hover:border-amber-500 hover:text-amber-400 active:scale-95 transition-all duration-150
+           disabled:opacity-40 disabled:cursor-not-allowed bg-surface-800;
+  }
+
+  .btn-danger {
+    @apply border border-red-800 text-red-400 font-medium px-5 py-2.5 text-sm
+           hover:bg-red-900/30 active:scale-95 transition-all duration-150
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .input-field {
+    @apply w-full bg-surface-800 border border-surface-600 text-slate-100 px-4 py-2.5 text-sm
+           focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30
+           placeholder-slate-600 transition-colors duration-150;
+  }
+
+  .card {
+    @apply bg-surface-900 border border-surface-700 p-5;
+  }
+
+  .section-title {
+    @apply font-mono text-xs text-slate-500 uppercase tracking-widest;
+  }
+
+  .page-title {
+    @apply font-mono text-xl font-medium text-slate-100;
+  }
+
+  .label {
+    @apply block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wide font-mono;
+  }
+}
