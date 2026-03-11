@@ -28,7 +28,6 @@ export default function EditDraft() {
           estimated_unit_price: draft.estimated_unit_price || '',
           category: draft.category || '',
           required_by: draft.required_by ? draft.required_by.split('T')[0] : '',
-          delivery_location: draft.delivery_location || '',
           priority: draft.priority || 'MEDIUM',
           department: draft.department || '',
         })
@@ -124,10 +123,6 @@ export default function EditDraft() {
                 <input name="required_by" type="date" value={form.required_by} onChange={handleChange} className="input-field"
                   min={new Date(Date.now() + 86400000).toISOString().split('T')[0]} />
               </div>
-            </div>
-            <div>
-              <label className="label">Delivery Location</label>
-              <input name="delivery_location" value={form.delivery_location} onChange={handleChange} className="input-field" />
             </div>
           </div>
 

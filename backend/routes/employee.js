@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
 const { authMiddleware } = require('../middleware/auth');
 const { allowRoles } = require('../middleware/roleMiddleware');
 
@@ -8,14 +10,29 @@ const {
   getRequests,
   getDrafts,
   getRejected,
-  updateDraft
+  updateDraft,
+  replyClarification
 } = require('../controllers/employeeController');
 
 const { raiseException } = require('../controllers/exceptionController');
 
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, path.join(__dirname, '..', 'uploads')),
+  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
+});
+const upload = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') cb(null, true);
+    else cb(new Error('Only PDF files are allowed'));
+  },
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
+
 router.post('/requests',
   authMiddleware,
   allowRoles('EMPLOYEE'),
+  upload.single('document'),
   createRequest
 );
 
@@ -47,6 +64,12 @@ router.post('/requests/:id/exception',
   authMiddleware,
   allowRoles('EMPLOYEE'),
   raiseException
+);
+
+router.post('/requests/:id/clarification-reply',
+  authMiddleware,
+  allowRoles('EMPLOYEE'),
+  replyClarification
 );
 
 module.exports = router;

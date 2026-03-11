@@ -16,10 +16,13 @@ async function createRequest(req, res) {
       estimated_unit_price,
       category,
       required_by,
-      delivery_location,
       priority,
       department
     } = req.body;
+
+    // Parse numeric fields (multipart/form-data sends everything as strings)
+    const parsedQuantity = parseInt(quantity, 10);
+    const parsedPrice = parseFloat(estimated_unit_price);
 
     // Required Fields Check
     if (
@@ -28,32 +31,27 @@ async function createRequest(req, res) {
       estimated_unit_price === undefined ||
       !category ||
       !required_by ||
-      !delivery_location ||
-      !priority ||
       !department
     ) {
       return res.status(400).json({ error: 'Please fill all required fields' });
     }
 
+    // PDF document required for final submissions (not drafts)
+    if (!isDraft && !req.file) {
+      return res.status(400).json({ error: 'A supporting PDF document is required to submit a request' });
+    }
+
     // Quantity Limit (1–20)
-    if (typeof quantity !== 'number' || quantity < 1 || quantity > 100) {
+    if (isNaN(parsedQuantity) || parsedQuantity < 1 || parsedQuantity > 20) {
       return res.status(400).json({
         error: 'Quantity must be between 1 and 20'
       });
     }
 
     // Price Validation
-    if (typeof estimated_unit_price !== 'number' || estimated_unit_price <= 0) {
+    if (isNaN(parsedPrice) || parsedPrice <= 0) {
       return res.status(400).json({
         error: 'Estimated unit price must be positive'
-      });
-    }
-
-    // Priority Check
-    const allowedPriorities = ['LOW', 'MEDIUM', 'HIGH'];
-    if (!allowedPriorities.includes(priority)) {
-      return res.status(400).json({
-        error: 'Priority must be LOW, MEDIUM, or HIGH'
       });
     }
 
@@ -84,7 +82,7 @@ async function createRequest(req, res) {
       });
     }
 
-    const total_amount = quantity * estimated_unit_price;
+    const total_amount = parsedQuantity * parsedPrice;
 
     // Budget Check
     const budget = await DepartmentBudget.findOne({
@@ -111,12 +109,12 @@ async function createRequest(req, res) {
       department,
       item_name,
       item_details: item_details || '',
-      quantity,
-      estimated_unit_price,
+      quantity: parsedQuantity,
+      estimated_unit_price: parsedPrice,
       category,
       required_by: reqDate,
-      delivery_location,
-      priority,
+      priority: priority || 'MEDIUM',
+      document_path: req.file ? req.file.filename : null,
       total_amount,
       is_draft: isDraft,
       status: isDraft ? 'DRAFT' : 'PENDING_MANAGER'
@@ -182,14 +180,13 @@ async function updateDraft(req, res) {
     if (!pr) return res.status(404).json({ error: 'Request not found' });
     if (!pr.is_draft) return res.status(400).json({ error: 'Only draft requests can be edited' });
 
-    const { item_name, item_details, quantity, estimated_unit_price, category, required_by, delivery_location, priority, department } = req.body;
+    const { item_name, item_details, quantity, estimated_unit_price, category, required_by, priority, department } = req.body;
     if (item_name !== undefined) pr.item_name = item_name;
     if (item_details !== undefined) pr.item_details = item_details;
     if (quantity !== undefined) pr.quantity = quantity;
     if (estimated_unit_price !== undefined) pr.estimated_unit_price = estimated_unit_price;
     if (category !== undefined) pr.category = category;
     if (required_by !== undefined) pr.required_by = required_by;
-    if (delivery_location !== undefined) pr.delivery_location = delivery_location;
     if (priority !== undefined) pr.priority = priority;
     if (department !== undefined) pr.department = department;
 
@@ -203,4 +200,26 @@ async function updateDraft(req, res) {
   }
 }
 
-module.exports = { createRequest, getRequests, getDrafts, getRejected, updateDraft };
+async function replyClarification(req, res) {
+  try {
+    const { user_id, role } = req.user;
+    const pr_id = req.params.id;
+    const { reply } = req.body;
+    if (role !== 'EMPLOYEE') return res.status(403).json({ error: 'Only employees can reply to clarification' });
+    if (!reply || !reply.trim()) return res.status(400).json({ error: 'Reply message is required' });
+
+    const pr = await PurchaseRequest.findOne({ where: { pr_id, employee_id: user_id } });
+    if (!pr) return res.status(404).json({ error: 'Request not found' });
+    if (!pr.clarification_message) return res.status(400).json({ error: 'No clarification message to reply to' });
+    if (pr.clarification_reply) return res.status(400).json({ error: 'Already replied to this clarification' });
+
+    pr.clarification_reply = reply.trim();
+    await pr.save();
+    return res.json({ message: 'Reply sent to manager', request: pr });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+}
+
+module.exports = { createRequest, getRequests, getDrafts, getRejected, updateDraft, replyClarification };

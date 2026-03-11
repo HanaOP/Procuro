@@ -1,7 +1,7 @@
 const { Sequelize, DataTypes } = require('sequelize');
 
 // 1. Initialize Connection
-const sequelize = new Sequelize('Procuro', 'postgres', 'Devaaa98', {
+const sequelize = new Sequelize('Procuro', 'postgres', 'Jyothika@5226', {
   host: 'localhost',
   dialect: 'postgres',
   logging: false,
@@ -58,8 +58,9 @@ const PurchaseRequest = sequelize.define('PurchaseRequest', {
   estimated_unit_price: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
   category: { type: DataTypes.STRING(100), allowNull: false },
   required_by: { type: DataTypes.DATEONLY, allowNull: false },
-  delivery_location: { type: DataTypes.STRING(200), allowNull: false },
+  delivery_location: { type: DataTypes.STRING(200), allowNull: true },
   priority: { type: DataTypes.ENUM('LOW', 'MEDIUM', 'HIGH'), allowNull: false },
+  document_path: { type: DataTypes.STRING(500), allowNull: true },
 
   total_amount: { type: DataTypes.DECIMAL(12, 2) },
 
@@ -68,6 +69,7 @@ const PurchaseRequest = sequelize.define('PurchaseRequest', {
 
   // Optional field for clarification message (if you want it stored)
   clarification_message: { type: DataTypes.TEXT },
+  clarification_reply: { type: DataTypes.TEXT, allowNull: true },
 
   // Mark as draft or final
   is_draft: { type: DataTypes.BOOLEAN, defaultValue: false },

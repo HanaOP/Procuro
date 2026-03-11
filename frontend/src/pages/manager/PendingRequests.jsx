@@ -58,14 +58,10 @@ function RequestCard({ r, onAction }) {
               <p className="text-xs text-slate-400">{r.item_details}</p>
             </div>
           )}
-          <div className="grid grid-cols-3 gap-3 text-xs font-mono">
+          <div className="grid grid-cols-2 gap-3 text-xs font-mono">
             <div className="bg-surface-800 px-3 py-2">
               <p className="text-slate-600 mb-0.5">Category</p>
               <p className="text-slate-300">{r.category}</p>
-            </div>
-            <div className="bg-surface-800 px-3 py-2">
-              <p className="text-slate-600 mb-0.5">Delivery To</p>
-              <p className="text-slate-300">{r.delivery_location}</p>
             </div>
             <div className="bg-surface-800 px-3 py-2">
               <p className="text-slate-600 mb-0.5">Unit Price</p>
@@ -73,9 +69,41 @@ function RequestCard({ r, onAction }) {
             </div>
           </div>
 
+          {r.document_path && (
+            <a
+              href={`/uploads/${r.document_path.split(/[\\/]/).pop()}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-3 py-2 bg-surface-800 border border-surface-600 hover:border-amber-500 text-xs font-mono text-amber-400 hover:text-amber-300 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              View Supporting Document (PDF)
+            </a>
+          )}
+
+          {/* Show clarification thread if sent */}
+          {r.clarification_message && (
+            <div className="space-y-2">
+              <div className="flex items-start gap-2 px-3 py-2 bg-amber-950/15 border border-amber-900/40">
+                <span className="text-amber-400 text-xs font-mono shrink-0">⚠ Clarification sent:</span>
+                <p className="text-xs text-amber-300 font-mono">{r.clarification_message}</p>
+              </div>
+              {r.clarification_reply ? (
+                <div className="flex items-start gap-2 px-3 py-2 bg-surface-800 border border-surface-600">
+                  <span className="text-emerald-400 text-xs font-mono shrink-0">↩ Employee reply:</span>
+                  <p className="text-xs text-slate-300 font-mono">{r.clarification_reply}</p>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 font-mono">Waiting for employee reply...</p>
+              )}
+            </div>
+          )}
+
           {err && <ErrorAlert message={err} />}
 
-          {/* Action buttons */}
+          {/* Action buttons — hide clarify if clarification already sent */}
           {!mode && (
             <div className="flex gap-2 flex-wrap">
               <button onClick={handleApprove} disabled={loading} className="btn-primary text-xs px-4 py-2">
@@ -84,22 +112,27 @@ function RequestCard({ r, onAction }) {
               <button onClick={() => setMode('reject')} className="btn-danger text-xs px-4 py-2">
                 ✕ Reject
               </button>
-              <button onClick={() => setMode('clarify')} className="btn-secondary text-xs px-4 py-2">
-                ? Request Clarification
-              </button>
+              {!r.clarification_message && (
+                <button onClick={() => setMode('clarify')} className="btn-secondary text-xs px-4 py-2">
+                  ? Request Clarification
+                </button>
+              )}
             </div>
           )}
 
           {mode === 'reject' && (
             <div className="space-y-2 animate-fade-in">
-              <label className="label">Rejection Reason (optional)</label>
+              <label className="label">Rejection Reason *</label>
               <textarea value={text} onChange={e => setText(e.target.value)}
-                className="input-field resize-none" rows={2} placeholder="Explain the rejection..." />
+                className="input-field resize-none" rows={2} placeholder="Explain why this request is being rejected..." />
               <div className="flex gap-2">
-                <button onClick={handleReject} disabled={loading} className="btn-danger text-xs px-4 py-2">
+                <button onClick={() => {
+                  if (!text.trim()) { setErr('A rejection reason is required'); return; }
+                  handleReject();
+                }} disabled={loading} className="btn-danger text-xs px-4 py-2">
                   {loading ? 'Rejecting...' : 'Confirm Reject'}
                 </button>
-                <button onClick={() => { setMode(null); setText('') }} className="btn-secondary text-xs px-4 py-2">Cancel</button>
+                <button onClick={() => { setMode(null); setText(''); setErr('') }} className="btn-secondary text-xs px-4 py-2">Cancel</button>
               </div>
             </div>
           )}

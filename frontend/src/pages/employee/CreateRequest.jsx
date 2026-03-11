@@ -14,7 +14,6 @@ const CATEGORIES = [
   "Maintenance",
   "Other",
 ];
-const PRIORITIES = ["LOW", "MEDIUM", "HIGH"];
 
 export default function CreateRequest() {
   const { user } = useAuth();
@@ -23,6 +22,7 @@ export default function CreateRequest() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [document, setDocument] = useState(null);
 
   const [form, setForm] = useState({
     item_name: "",
@@ -31,8 +31,6 @@ export default function CreateRequest() {
     estimated_unit_price: "",
     category: "",
     required_by: "",
-    delivery_location: "",
-    priority: "MEDIUM",
     department: user?.department || "",
   });
 
@@ -51,6 +49,10 @@ export default function CreateRequest() {
   const handleSubmit = async (draft) => {
     setError("");
     setSuccess("");
+    if (!draft && !document) {
+      setError("Please upload a supporting PDF document before submitting.");
+      return;
+    }
     setLoading(true);
     try {
       const payload = {
@@ -58,7 +60,7 @@ export default function CreateRequest() {
         quantity: parseInt(form.quantity),
         estimated_unit_price: parseFloat(form.estimated_unit_price),
       };
-      await createRequest(payload, draft);
+      await createRequest(payload, document, draft);
       setSuccess(
         draft
           ? "Draft saved successfully."
@@ -128,21 +130,6 @@ export default function CreateRequest() {
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="label">Priority *</label>
-                  <select
-                    name="priority"
-                    value={form.priority}
-                    onChange={handleChange}
-                    className="input-field"
-                  >
-                    {PRIORITIES.map((p) => (
-                      <option key={p} value={p} className="bg-surface-900">
-                        {p}
-                      </option>
-                    ))}
-                  </select>
-                </div>
               </div>
             </div>
           </div>
@@ -154,12 +141,12 @@ export default function CreateRequest() {
             </p>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="label">Quantity * (1–100)</label>
+                <label className="label">Quantity * (1–20)</label>
                 <input
                   name="quantity"
                   type="number"
                   min="1"
-                  max="100"
+                  max="20"
                   value={form.quantity}
                   onChange={handleChange}
                   className="input-field"
@@ -229,16 +216,33 @@ export default function CreateRequest() {
                   />
                 </div>
               </div>
-              <div>
-                <label className="label">Delivery Location *</label>
+            </div>
+          </div>
+
+          {/* Supporting Document */}
+          <div>
+            <p className="section-title mb-4 border-b border-surface-700 pb-2">
+              Supporting Document
+            </p>
+            <div>
+              <label className="label">Upload PDF *</label>
+              <label className="flex items-center gap-3 cursor-pointer input-field hover:border-amber-500 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12V4m0 0L8 8m4-4l4 4" />
+                </svg>
+                <span className={`text-sm font-mono truncate ${document ? "text-amber-400" : "text-slate-500"}`}>
+                  {document ? document.name : "Click to upload PDF (max 10 MB)"}
+                </span>
                 <input
-                  name="delivery_location"
-                  value={form.delivery_location}
-                  onChange={handleChange}
-                  className="input-field"
-                  placeholder="e.g. 3rd Floor, Block B"
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={(e) => setDocument(e.target.files[0] || null)}
                 />
-              </div>
+              </label>
+              {!document && (
+                <p className="mt-1 text-xs text-slate-600 font-mono">Required to submit a request</p>
+              )}
             </div>
           </div>
 

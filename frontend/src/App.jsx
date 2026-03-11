@@ -21,6 +21,7 @@ import ManagerPending    from './pages/manager/PendingRequests'
 import HighPriority      from './pages/manager/HighPriority'
 import ManagerApproved   from './pages/manager/ApprovedRequests'
 import ManagerRejected   from './pages/manager/RejectedRequests'
+import ManagerClarifications from './pages/manager/Clarifications'
 import ManagerExceptions from './pages/manager/Exceptions'
 
 // Finance
@@ -88,6 +89,7 @@ export default function App() {
           <Route path="/manager/high-priority"                 element={<Guard roles={['MANAGER']}><HighPriority /></Guard>} />
           <Route path="/manager/approved"                      element={<Guard roles={['MANAGER']}><ManagerApproved /></Guard>} />
           <Route path="/manager/rejected"                      element={<Guard roles={['MANAGER']}><ManagerRejected /></Guard>} />
+          <Route path="/manager/clarifications"                element={<Guard roles={['MANAGER']}><ManagerClarifications /></Guard>} />
           <Route path="/manager/exceptions"                    element={<Guard roles={['MANAGER']}><ManagerExceptions /></Guard>} />
 
           {/* ── FINANCE ── */}

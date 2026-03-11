@@ -5,6 +5,12 @@ const { allowRoles } = require('../middleware/roleMiddleware');
 const manager = require('../controllers/managerController');
 const { viewExceptions } = require('../controllers/exceptionController');
 
+router.get('/requests/clarifications',
+  authMiddleware,
+  allowRoles('MANAGER'),
+  manager.clarificationsList
+);
+
 router.get('/requests/pending',
   authMiddleware,
   allowRoles('MANAGER'),
