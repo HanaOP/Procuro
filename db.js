@@ -1,7 +1,7 @@
 const { Sequelize, DataTypes } = require('sequelize');
 
 // 1. Initialize Connection
-const sequelize = new Sequelize('Procuro', 'postgres', 'Jyothika@5226', {
+const sequelize = new Sequelize('Procuro', 'postgres', 'Devaaa98', {
   host: 'localhost',
   dialect: 'postgres',
   logging: false,
@@ -11,12 +11,14 @@ const sequelize = new Sequelize('Procuro', 'postgres', 'Jyothika@5226', {
 // 2. DEFINE MODELS (TABLES)
 // ==========================================
 
+
 const User = sequelize.define('User', {
   user_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   name: { type: DataTypes.STRING, allowNull: false },
   email: { type: DataTypes.STRING, allowNull: false, unique: true },
   password_hash: { type: DataTypes.TEXT, allowNull: false },
   role: { type: DataTypes.STRING(50), allowNull: false },
+  department: { type: DataTypes.STRING(100), allowNull: true },  // ← added
   status: { type: DataTypes.STRING(50), defaultValue: 'ACTIVE' },
 
   // OTP + verification fields
