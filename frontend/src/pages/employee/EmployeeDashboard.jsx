@@ -28,6 +28,7 @@ export default function EmployeeDashboard() {
   return (
     <AppLayout>
       <div className="space-y-8">
+
         {/* Header */}
         <div>
           <p className="section-title mb-1">Dashboard</p>
@@ -38,9 +39,9 @@ export default function EmployeeDashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
             { label: 'Total Requests', value: stats.total },
-            { label: 'In Progress',    value: stats.pending },
-            { label: 'Rejected',       value: stats.rejected },
-            { label: 'Delivered',      value: stats.delivered },
+            { label: 'In Progress', value: stats.pending },
+            { label: 'Rejected', value: stats.rejected },
+            { label: 'Delivered', value: stats.delivered },
           ].map((s) => (
             <div key={s.label} className="card">
               <p className="section-title mb-2">{s.label}</p>
@@ -52,15 +53,30 @@ export default function EmployeeDashboard() {
         {/* Quick actions */}
         <div>
           <p className="section-title mb-3">Quick Actions</p>
+
           <div className="flex flex-wrap gap-3">
-            <Link to="/employee/new" className="btn-primary">+ New Request</Link>
-            <Link to="/employee/drafts" className="btn-secondary">View Drafts</Link>
+
+            {/* 🤖 AI CHAT BUTTON (NEW) */}
+            <Link to="/ai-chat" className="btn-primary">
+              🤖 AI Request
+            </Link>
+
+            {/* Optional: keep manual form */}
+            <Link to="/employee/new" className="btn-secondary">
+              Manual Request
+            </Link>
+
+            <Link to="/employee/drafts" className="btn-secondary">
+              View Drafts
+            </Link>
+
           </div>
         </div>
 
         {/* Recent requests */}
         <div>
           <p className="section-title mb-3">Recent Requests</p>
+
           {loading ? (
             <LoadingSpinner />
           ) : requests.length === 0 ? (
@@ -68,13 +84,20 @@ export default function EmployeeDashboard() {
           ) : (
             <div className="space-y-2">
               {requests.slice(0, 8).map((r) => (
-                <div key={r.pr_id} className="card flex items-center justify-between hover:border-surface-600 transition-colors">
+                <div
+                  key={r.pr_id}
+                  className="card flex items-center justify-between hover:border-surface-600 transition-colors"
+                >
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-200 font-medium truncate">{r.item_name}</p>
+                    <p className="text-sm text-slate-200 font-medium truncate">
+                      {r.item_name}
+                    </p>
                     <p className="text-xs text-slate-500 font-mono mt-0.5">
-                      {r.department} · {r.quantity} units · ₹{parseFloat(r.total_amount).toLocaleString()}
+                      {r.department} · {r.quantity} units · ₹
+                      {parseFloat(r.total_amount).toLocaleString()}
                     </p>
                   </div>
+
                   <div className="flex items-center gap-2 ml-4 shrink-0">
                     <PriorityBadge priority={r.priority} />
                     <StatusBadge status={r.status} />
@@ -84,6 +107,7 @@ export default function EmployeeDashboard() {
             </div>
           )}
         </div>
+
       </div>
     </AppLayout>
   )

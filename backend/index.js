@@ -15,13 +15,14 @@ const financeRoutes = require('./routes/finance');
 const exceptionRoutes = require('./routes/exception');
 const procurementRoutes = require('./routes/procurement');
 const supplierRoutes = require('./routes/supplier');
-
+const aiRoutes = require('./routes/airoute');
 
 app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/auth', authRoutes);
+app.use('/api', aiRoutes);
 app.use('/employee', employeeRoutes);
 app.use('/manager', managerRoutes);
 app.use('/finance', financeRoutes);

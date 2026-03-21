@@ -1,7 +1,7 @@
 const { Sequelize, DataTypes } = require('sequelize');
 
 // 1. Initialize Connection
-const sequelize = new Sequelize('Procuro', 'postgres', 'Jyothika@5226', {
+const sequelize = new Sequelize('Procuro', 'postgres', '1234', {
   host: 'localhost',
   dialect: 'postgres',
   logging: false,

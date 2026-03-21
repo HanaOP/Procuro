@@ -14,6 +14,7 @@ import Drafts            from './pages/employee/Drafts'
 import EditDraft         from './pages/employee/EditDraft'
 import RejectedRequests  from './pages/employee/RejectedRequests'
 import RaiseException    from './pages/employee/RaiseException'
+import AIChat            from './pages/employee/AIChat'   // ✅ ADDED
 
 // Manager
 import ManagerDashboard  from './pages/manager/ManagerDashboard'
@@ -68,6 +69,7 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+
           {/* Public */}
           <Route path="/login"      element={<Login />} />
           <Route path="/register"   element={<Register />} />
@@ -82,6 +84,16 @@ export default function App() {
           <Route path="/employee/drafts/:id/edit"              element={<Guard roles={['EMPLOYEE']}><EditDraft /></Guard>} />
           <Route path="/employee/rejected"                     element={<Guard roles={['EMPLOYEE']}><RejectedRequests /></Guard>} />
           <Route path="/employee/requests/:id/exception"       element={<Guard roles={['EMPLOYEE']}><RaiseException /></Guard>} />
+
+          {/* ✅ AI CHAT ROUTE (FIX) */}
+          <Route
+            path="/ai-chat"
+            element={
+              <Guard roles={['EMPLOYEE']}>
+                <AIChat />
+              </Guard>
+            }
+          />
 
           {/* ── MANAGER ── */}
           <Route path="/manager"                               element={<Guard roles={['MANAGER']}><ManagerDashboard /></Guard>} />
@@ -113,6 +125,7 @@ export default function App() {
 
           {/* 404 */}
           <Route path="*" element={<Navigate to="/" replace />} />
+
         </Routes>
       </BrowserRouter>
     </AuthProvider>
