@@ -112,7 +112,7 @@ async function login(req, res) {
     }
 
     const token = jwt.sign(
-      { user_id: user.user_id, role: user.role },
+      { user_id: user.user_id, role: user.role, department: user.department },
       JWT_SECRET,
       { expiresIn: "1d" },
     );

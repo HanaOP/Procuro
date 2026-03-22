@@ -24,22 +24,18 @@ export default function CreateRequest() {
   const [success, setSuccess] = useState("");
   const [document, setDocument] = useState(null);
 
+  const minRequiredDate = new Date(Date.now() + 2 * 86400000)
+    .toISOString()
+    .split("T")[0];
+
   const [form, setForm] = useState({
     item_name: "",
     item_details: "",
     quantity: "",
-    estimated_unit_price: "",
     category: "",
     required_by: "",
     department: user?.department || "",
   });
-
-  const totalAmount =
-    form.quantity && form.estimated_unit_price
-      ? (
-          parseFloat(form.quantity) * parseFloat(form.estimated_unit_price)
-        ).toLocaleString("en-IN", { minimumFractionDigits: 2 })
-      : "—";
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -58,7 +54,6 @@ export default function CreateRequest() {
       const payload = {
         ...form,
         quantity: parseInt(form.quantity),
-        estimated_unit_price: parseFloat(form.estimated_unit_price),
       };
       await createRequest(payload, document, draft);
       setSuccess(
@@ -134,12 +129,12 @@ export default function CreateRequest() {
             </div>
           </div>
 
-          {/* Quantity & Price */}
+          {/* Quantity */}
           <div>
             <p className="section-title mb-4 border-b border-surface-700 pb-2">
-              Quantity & Cost
+              Quantity
             </p>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="label">Quantity * (1–20)</label>
                 <input
@@ -153,28 +148,10 @@ export default function CreateRequest() {
                   placeholder="1"
                 />
               </div>
-              <div>
-                <label className="label">Unit Price (₹) *</label>
-                <input
-                  name="estimated_unit_price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.estimated_unit_price}
-                  onChange={handleChange}
-                  className="input-field"
-                  placeholder="0.00"
-                />
-              </div>
             </div>
-            <div className="mt-3 px-4 py-3 bg-surface-800 border border-surface-600 flex justify-between items-center">
-              <span className="font-mono text-xs text-slate-500 uppercase tracking-wider">
-                Estimated Total
-              </span>
-              <span className="font-mono text-amber-400 text-lg font-medium">
-                ₹{totalAmount}
-              </span>
-            </div>
+            <p className="mt-3 text-xs text-slate-500 font-mono">
+              Estimated unit price and total amount will be calculated automatically from item specifications.
+            </p>
           </div>
 
           {/* Logistics */}
@@ -208,12 +185,11 @@ export default function CreateRequest() {
                     value={form.required_by}
                     onChange={handleChange}
                     className="input-field"
-                    min={
-                      new Date(Date.now() + 86400000)
-                        .toISOString()
-                        .split("T")[0]
-                    }
+                    min={minRequiredDate}
                   />
+                  <p className="mt-1 text-xs text-slate-500 font-mono">
+                    Minimum lead time: at least 2 days from today.
+                  </p>
                 </div>
               </div>
             </div>

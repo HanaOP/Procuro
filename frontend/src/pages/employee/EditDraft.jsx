@@ -26,6 +26,7 @@ export default function EditDraft() {
           item_details: draft.item_details || '',
           quantity: draft.quantity || '',
           estimated_unit_price: draft.estimated_unit_price || '',
+          total_amount: draft.total_amount || '',
           category: draft.category || '',
           required_by: draft.required_by ? draft.required_by.split('T')[0] : '',
           priority: draft.priority || 'MEDIUM',
@@ -38,14 +39,26 @@ export default function EditDraft() {
 
   const handleChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
 
-  const totalAmount = form?.quantity && form?.estimated_unit_price
-    ? (parseFloat(form.quantity) * parseFloat(form.estimated_unit_price)).toLocaleString('en-IN', { minimumFractionDigits: 2 })
-    : '—'
+  const unitPriceLabel = form?.estimated_unit_price
+    ? parseFloat(form.estimated_unit_price).toLocaleString('en-IN', { minimumFractionDigits: 2 })
+    : 'Pending recalculation'
+
+  const totalAmount = form?.total_amount
+    ? parseFloat(form.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })
+    : 'Pending recalculation'
 
   const handleSaveDraft = async () => {
     setSaving(true); setError('')
     try {
-      await updateDraft(id, { ...form, quantity: parseInt(form.quantity), estimated_unit_price: parseFloat(form.estimated_unit_price) })
+      const payload = { ...form, quantity: parseInt(form.quantity) }
+      delete payload.estimated_unit_price
+      delete payload.total_amount
+      const { data } = await updateDraft(id, payload)
+      setForm(prev => ({
+        ...prev,
+        estimated_unit_price: data?.request?.estimated_unit_price ?? prev.estimated_unit_price,
+        total_amount: data?.request?.total_amount ?? prev.total_amount,
+      }))
       setSuccess('Draft updated.')
     } catch (err) { setError(err.response?.data?.error || 'Failed to save') }
     finally { setSaving(false) }
@@ -54,7 +67,9 @@ export default function EditDraft() {
   const handleSubmit = async () => {
     setSaving(true); setError('')
     try {
-      const payload = { ...form, quantity: parseInt(form.quantity), estimated_unit_price: parseFloat(form.estimated_unit_price) }
+      const payload = { ...form, quantity: parseInt(form.quantity) }
+      delete payload.estimated_unit_price
+      delete payload.total_amount
       await createRequest(payload, false)
       setSuccess('Submitted for manager approval.')
       setTimeout(() => navigate('/employee/requests'), 1500)
@@ -102,17 +117,20 @@ export default function EditDraft() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="label">Quantity</label>
-                <input name="quantity" type="number" min="1" max="100" value={form.quantity} onChange={handleChange} className="input-field" />
+                <input name="quantity" type="number" min="1" max="20" value={form.quantity} onChange={handleChange} className="input-field" />
               </div>
               <div>
-                <label className="label">Unit Price (₹)</label>
-                <input name="estimated_unit_price" type="number" min="0" step="0.01" value={form.estimated_unit_price} onChange={handleChange} className="input-field" />
+                <label className="label">AI Estimated Unit Price (₹)</label>
+                <input value={unitPriceLabel} readOnly className="input-field opacity-70 cursor-not-allowed" />
               </div>
             </div>
             <div className="px-4 py-3 bg-surface-800 border border-surface-600 flex justify-between items-center">
-              <span className="font-mono text-xs text-slate-500 uppercase tracking-wider">Total</span>
+              <span className="font-mono text-xs text-slate-500 uppercase tracking-wider">AI Estimated Total</span>
               <span className="font-mono text-amber-400 text-lg font-medium">₹{totalAmount}</span>
             </div>
+            <p className="text-xs text-slate-500 font-mono">
+              Price is auto-calculated from product specifications when you save or submit this draft.
+            </p>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="label">Department</label>
@@ -121,7 +139,7 @@ export default function EditDraft() {
               <div>
                 <label className="label">Required By</label>
                 <input name="required_by" type="date" value={form.required_by} onChange={handleChange} className="input-field"
-                  min={new Date(Date.now() + 86400000).toISOString().split('T')[0]} />
+                  min={new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0]} />
               </div>
             </div>
           </div>

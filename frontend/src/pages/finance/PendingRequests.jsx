@@ -50,7 +50,7 @@ function FinanceRequestCard({ r, onAction }) {
               <p className="text-slate-300">{r.category}</p>
             </div>
             <div className="bg-surface-800 px-3 py-2">
-              <p className="text-slate-600 mb-0.5">Unit Price</p>
+              <p className="text-slate-600 mb-0.5">AI Est. Unit Price</p>
               <p className="text-slate-300">₹{parseFloat(r.estimated_unit_price).toLocaleString()}</p>
             </div>
             <div className="bg-surface-800 px-3 py-2">
@@ -68,7 +68,7 @@ function FinanceRequestCard({ r, onAction }) {
 
           <div className="flex gap-2">
             <button onClick={handleApprove} disabled={loading} className="btn-primary text-xs px-4 py-2">
-              ✓ Approve Budget
+              ✓ Accept Budget
             </button>
             <button onClick={handleReject} disabled={loading} className="btn-danger text-xs px-4 py-2">
               ✕ Reject

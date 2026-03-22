@@ -1,5 +1,6 @@
 const { PurchaseRequest, DepartmentBudget, User } = require('../db');
 const { Op } = require('sequelize');
+const { estimateRequestPricing } = require('../utils/pricingEstimator');
 
 async function createRequest(req, res) {
   try {
@@ -13,7 +14,6 @@ async function createRequest(req, res) {
       item_name,
       item_details,
       quantity,
-      estimated_unit_price,
       category,
       required_by,
       priority,
@@ -22,13 +22,11 @@ async function createRequest(req, res) {
 
     // Parse numeric fields (multipart/form-data sends everything as strings)
     const parsedQuantity = parseInt(quantity, 10);
-    const parsedPrice = parseFloat(estimated_unit_price);
 
     // Required Fields Check
     if (
       !item_name ||
       quantity === undefined ||
-      estimated_unit_price === undefined ||
       !category ||
       !required_by ||
       !department
@@ -48,16 +46,11 @@ async function createRequest(req, res) {
       });
     }
 
-    // Price Validation
-    if (isNaN(parsedPrice) || parsedPrice <= 0) {
-      return res.status(400).json({
-        error: 'Estimated unit price must be positive'
-      });
-    }
-
-    // Future Date Validation (strict)
+    // Minimum lead-time validation (at least 2 days from today)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const minDate = new Date(today);
+    minDate.setDate(minDate.getDate() + 2);
 
     const reqDate = new Date(required_by);
     if (isNaN(reqDate.getTime())) {
@@ -68,9 +61,9 @@ async function createRequest(req, res) {
 
     reqDate.setHours(0, 0, 0, 0);
 
-    if (reqDate <= today) {
+    if (reqDate < minDate) {
       return res.status(400).json({
-        error: 'required_by must be a future date'
+        error: 'required_by must be at least 2 days from today'
       });
     }
 
@@ -82,7 +75,13 @@ async function createRequest(req, res) {
       });
     }
 
-    const total_amount = parsedQuantity * parsedPrice;
+    const pricing = estimateRequestPricing({
+      itemName: item_name,
+      itemDetails: item_details,
+      category,
+      quantity: parsedQuantity
+    });
+    const total_amount = pricing.estimatedTotal;
 
     // Budget Check
     const budget = await DepartmentBudget.findOne({
@@ -110,7 +109,7 @@ async function createRequest(req, res) {
       item_name,
       item_details: item_details || '',
       quantity: parsedQuantity,
-      estimated_unit_price: parsedPrice,
+      estimated_unit_price: pricing.estimatedUnitPrice,
       category,
       required_by: reqDate,
       priority: priority || 'MEDIUM',
@@ -122,7 +121,8 @@ async function createRequest(req, res) {
 
     return res.status(201).json({
       message: isDraft ? 'Draft saved' : 'Purchase request submitted',
-      request: pr
+      request: pr,
+      pricing
     });
 
   } catch (err) {
@@ -180,20 +180,33 @@ async function updateDraft(req, res) {
     if (!pr) return res.status(404).json({ error: 'Request not found' });
     if (!pr.is_draft) return res.status(400).json({ error: 'Only draft requests can be edited' });
 
-    const { item_name, item_details, quantity, estimated_unit_price, category, required_by, priority, department } = req.body;
+    const { item_name, item_details, quantity, category, required_by, priority, department } = req.body;
     if (item_name !== undefined) pr.item_name = item_name;
     if (item_details !== undefined) pr.item_details = item_details;
-    if (quantity !== undefined) pr.quantity = quantity;
-    if (estimated_unit_price !== undefined) pr.estimated_unit_price = estimated_unit_price;
+    if (quantity !== undefined) {
+      const parsedQuantity = parseInt(quantity, 10);
+      if (isNaN(parsedQuantity) || parsedQuantity < 1 || parsedQuantity > 20) {
+        return res.status(400).json({ error: 'Quantity must be between 1 and 20' });
+      }
+      pr.quantity = parsedQuantity;
+    }
     if (category !== undefined) pr.category = category;
     if (required_by !== undefined) pr.required_by = required_by;
     if (priority !== undefined) pr.priority = priority;
     if (department !== undefined) pr.department = department;
 
-    if (pr.quantity && pr.estimated_unit_price) pr.total_amount = pr.quantity * pr.estimated_unit_price;
+    const pricing = estimateRequestPricing({
+      itemName: pr.item_name,
+      itemDetails: pr.item_details,
+      category: pr.category,
+      quantity: pr.quantity
+    });
+    pr.estimated_unit_price = pricing.estimatedUnitPrice;
+    pr.total_amount = pricing.estimatedTotal;
+
     await pr.save();
 
-    return res.json({ message: 'Draft purchase request updated', request: pr });
+    return res.json({ message: 'Draft purchase request updated', request: pr, pricing });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Server error' });
