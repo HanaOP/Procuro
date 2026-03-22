@@ -425,10 +425,10 @@ async function chatHandler(req, res) {
       if (quantity) session.quantity = quantity;
     }
 
-    // Date
-    if (!session.required_by) {
-      const parsedDate = extractDateFromText(msg);
-      if (parsedDate) session.required_by = parsedDate;
+    // Date: always accept a newer date mentioned by the user so they can correct it.
+    const parsedDate = extractDateFromText(msg);
+    if (parsedDate) {
+      session.required_by = parsedDate;
     }
 
     // Item
@@ -513,7 +513,7 @@ async function chatHandler(req, res) {
        🔥 FINAL SAVE
     ========================= */
 
-    const pricing = estimateRequestPricing({
+    const pricing = await estimateRequestPricing({
       itemName: session.item_name,
       itemDetails: session.item_details,
       category: session.category,

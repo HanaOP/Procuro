@@ -75,7 +75,7 @@ async function createRequest(req, res) {
       });
     }
 
-    const pricing = estimateRequestPricing({
+    const pricing = await estimateRequestPricing({
       itemName: item_name,
       itemDetails: item_details,
       category,
@@ -195,7 +195,7 @@ async function updateDraft(req, res) {
     if (priority !== undefined) pr.priority = priority;
     if (department !== undefined) pr.department = department;
 
-    const pricing = estimateRequestPricing({
+    const pricing = await estimateRequestPricing({
       itemName: pr.item_name,
       itemDetails: pr.item_details,
       category: pr.category,

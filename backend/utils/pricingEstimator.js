@@ -1,3 +1,7 @@
+const SERP_API_URL = 'https://serpapi.com/search.json';
+const DUMMY_JSON_URL = 'https://dummyjson.com/products/search';
+const USD_TO_INR = parseFloat(process.env.USD_TO_INR || '83');
+
 function roundToTwo(value) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
@@ -36,7 +40,6 @@ function getSpecMultiplier(itemName = '', itemDetails = '') {
   const details = String(itemDetails).toLowerCase();
   let multiplier = 1;
 
-  // Generic premium terms.
   if (/(premium|enterprise|industrial|heavy duty)/.test(details)) multiplier += 0.15;
   if (/(wireless|bluetooth|smart)/.test(details)) multiplier += 0.08;
 
@@ -74,19 +77,190 @@ function getSpecMultiplier(itemName = '', itemDetails = '') {
   return Math.min(multiplier, 2.5);
 }
 
-function estimateRequestPricing({ itemName, itemDetails, category, quantity }) {
+function parsePriceValue(input) {
+  if (typeof input === 'number' && Number.isFinite(input) && input > 0) {
+    return input;
+  }
+
+  if (!input) return null;
+  const cleaned = String(input).replace(/[^0-9.]/g, '');
+  if (!cleaned) return null;
+  const value = parseFloat(cleaned);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function normalizeTokens(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((token) => token.length >= 2);
+}
+
+function buildSpecTokens(itemName, itemDetails) {
+  const allTokens = [...normalizeTokens(itemName), ...normalizeTokens(itemDetails)];
+  const ignored = new Set(['with', 'and', 'for', 'the', 'this', 'that', 'need', 'want', 'item']);
+  return Array.from(new Set(allTokens.filter((token) => !ignored.has(token))));
+}
+
+function scoreTitleAgainstSpecs(title, specTokens) {
+  if (!title || specTokens.length === 0) return 0;
+  const normalizedTitle = String(title).toLowerCase();
+  let score = 0;
+  for (const token of specTokens) {
+    if (normalizedTitle.includes(token)) {
+      score += 1;
+    }
+  }
+  return score;
+}
+
+function buildSearchQuery(itemName, itemDetails) {
+  const item = String(itemName || '').trim();
+  const details = String(itemDetails || '').trim();
+  if (!details) return item;
+  const detailTokens = normalizeTokens(details).slice(0, 6).join(' ');
+  return `${item} ${detailTokens}`.trim();
+}
+
+function calculateRobustAverage(values) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  if (sorted.length <= 2) {
+    return sorted.reduce((sum, value) => sum + value, 0) / sorted.length;
+  }
+
+  const trimCount = Math.max(1, Math.floor(sorted.length * 0.2));
+  const trimmed = sorted.slice(trimCount, sorted.length - trimCount);
+  const safe = trimmed.length ? trimmed : sorted;
+  return safe.reduce((sum, value) => sum + value, 0) / safe.length;
+}
+
+async function fetchJson(url) {
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'Procuro-Pricing/1.0',
+      Accept: 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
+
+async function fetchSerpApiPriceSamples(query, specTokens) {
+  const apiKey = process.env.SERPAPI_API_KEY;
+  if (!apiKey) return [];
+
+  try {
+    const params = new URLSearchParams({
+      engine: 'google_shopping',
+      q: query,
+      gl: 'in',
+      hl: 'en',
+      api_key: apiKey
+    });
+
+    const data = await fetchJson(`${SERP_API_URL}?${params.toString()}`);
+    const results = Array.isArray(data.shopping_results) ? data.shopping_results : [];
+
+    const weighted = results
+      .map((item) => {
+        const title = item.title || '';
+        const raw = item.extracted_price ?? item.price;
+        const value = parsePriceValue(raw);
+        if (!value) return null;
+
+        return {
+          value,
+          score: scoreTitleAgainstSpecs(title, specTokens)
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20);
+
+    return weighted.map((entry) => entry.value);
+  } catch (error) {
+    return [];
+  }
+}
+
+async function fetchDummyJsonPriceSamples(query, specTokens) {
+  try {
+    const params = new URLSearchParams({ q: query });
+    const data = await fetchJson(`${DUMMY_JSON_URL}?${params.toString()}`);
+    const products = Array.isArray(data.products) ? data.products : [];
+
+    const weighted = products
+      .map((product) => {
+        const title = product.title || '';
+        const usdPrice = parsePriceValue(product.price);
+        if (!usdPrice) return null;
+
+        return {
+          value: usdPrice * USD_TO_INR,
+          score: scoreTitleAgainstSpecs(title, specTokens)
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20);
+
+    return weighted.map((entry) => entry.value);
+  } catch (error) {
+    return [];
+  }
+}
+
+function applyMarketAdjustment(marketAverage, multiplier) {
+  const boundedMultiplier = Math.max(0.85, Math.min(multiplier, 1.25));
+  return marketAverage * boundedMultiplier;
+}
+
+async function estimateRequestPricing({ itemName, itemDetails, category, quantity }) {
   const parsedQuantity = parseInt(quantity, 10);
   const safeQuantity = Number.isNaN(parsedQuantity) || parsedQuantity < 1 ? 1 : parsedQuantity;
   const basePrice = getBasePrice(itemName, category);
   const multiplier = getSpecMultiplier(itemName, itemDetails);
-  const estimatedUnitPrice = roundToTwo(basePrice * multiplier);
+
+  const specTokens = buildSpecTokens(itemName, itemDetails);
+  const query = buildSearchQuery(itemName, itemDetails);
+
+  let source = 'heuristic';
+  let marketSamples = [];
+
+  if (query) {
+    const liveSamples = await fetchSerpApiPriceSamples(query, specTokens);
+    if (liveSamples.length >= 3) {
+      marketSamples = liveSamples;
+      source = 'market_live';
+    } else {
+      const catalogSamples = await fetchDummyJsonPriceSamples(query, specTokens);
+      if (catalogSamples.length >= 2) {
+        marketSamples = catalogSamples;
+        source = 'market_catalog';
+      }
+    }
+  }
+
+  const marketAverage = calculateRobustAverage(marketSamples);
+  const estimatedUnitPrice = roundToTwo(
+    marketAverage ? applyMarketAdjustment(marketAverage, multiplier) : basePrice * multiplier
+  );
   const estimatedTotal = roundToTwo(estimatedUnitPrice * safeQuantity);
 
   return {
     estimatedUnitPrice,
     estimatedTotal,
     basePrice,
-    multiplier
+    multiplier,
+    source,
+    sampleCount: marketSamples.length,
+    marketAverage: marketAverage ? roundToTwo(marketAverage) : null
   };
 }
 
