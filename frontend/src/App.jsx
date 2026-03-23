@@ -26,6 +26,7 @@ import ManagerClarifications from './pages/manager/Clarifications'
 import ManagerExceptions from './pages/manager/Exceptions'
 import AIDashboard from './pages/manager/AIDashboard'
 import SupplierApprovals from './pages/manager/SupplierApprovals'
+import AuditTrail from './pages/manager/AuditTrail'
 
 // Finance
 import FinanceDashboard  from './pages/finance/FinanceDashboard'
@@ -113,6 +114,7 @@ export default function App() {
           <Route path="/manager/exceptions"                    element={<Guard roles={['MANAGER']}><ManagerExceptions /></Guard>} />
           <Route path="/manager/ai-dashboard" element={<Guard roles={['MANAGER']}><AIDashboard /></Guard>} /> 
           <Route path="/manager/supplier-approvals" element={<Guard roles={['MANAGER']}><SupplierApprovals /></Guard>} />
+          <Route path="/manager/audit-trail"                  element={<Guard roles={['MANAGER']}><AuditTrail /></Guard>} />
 
           {/* ── FINANCE ── */}
           <Route path="/finance"                               element={<Guard roles={['FINANCE']}><FinanceDashboard /></Guard>} />

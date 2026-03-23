@@ -24,7 +24,7 @@ export default function ViewQuotations() {
     setSelecting(quotation_id); setError('')
     try {
       await selectSupplier(quotation_id)
-      setSuccess('Supplier selection sent to manager for review. Manager has 2 minutes to raise an objection.')
+      setSuccess('Supplier selection sent to manager for review. Manager has 5 minutes to raise an objection.')
       setTimeout(() => navigate('/procurement/supplier-approvals'), 2500)
     } catch (e) {
       setError(e.response?.data?.error || 'Failed to select supplier')
@@ -42,7 +42,7 @@ export default function ViewQuotations() {
           <p className="section-title mb-1">Procurement · RFQ #{rfq_id}</p>
           <h1 className="page-title">Supplier Quotations</h1>
           <p className="text-xs text-slate-500 mt-1">
-            Select a supplier to send for manager review. Manager has 2 minutes to raise an objection.
+            Select a supplier to send for manager review. Manager has 5 minutes to raise an objection.
           </p>
         </div>
 

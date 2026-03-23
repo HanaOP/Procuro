@@ -21,7 +21,7 @@ async function runAutoApprove() {
     for (const approval of expired) {
       try {
         console.log(`⏰ Auto-approving supplier selection #${approval.approval_id} (5 min deadline passed)`);
-        await _finalizeSupplierSelection(approval);
+        await _finalizeSupplierSelection(approval, 'System (AUTO_APPROVE)');
         approval.status        = 'APPROVED';
         approval.auto_approved = true;
         approval.reviewed_at   = new Date();

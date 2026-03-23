@@ -129,8 +129,25 @@ const PurchaseOrder = sequelize.define('PurchaseOrder', {
 const Invoice = sequelize.define('Invoice', {
   invoice_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   invoice_number: { type: DataTypes.STRING, allowNull: false },
+  due_date: { type: DataTypes.DATEONLY, allowNull: true },
   amount: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
+  ordered_quantity: { type: DataTypes.INTEGER, allowNull: true },
+  delivered_quantity: { type: DataTypes.INTEGER, allowNull: true },
   quantity: { type: DataTypes.INTEGER, allowNull: false },
+  delivery_status: {
+    type: DataTypes.ENUM('FULL_MATCH', 'PARTIAL_DELIVERY', 'INVALID'),
+    allowNull: true,
+  },
+  unit_price: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+  subtotal: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+  tax_percent: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+  supplier_name: { type: DataTypes.STRING(150), allowNull: true },
+  company_name: { type: DataTypes.STRING(200), allowNull: true },
+  gstin: { type: DataTypes.STRING(30), allowNull: true },
+  po_number: { type: DataTypes.STRING(50), allowNull: true },
+  item_name: { type: DataTypes.STRING(200), allowNull: true },
+  payment_terms: { type: DataTypes.STRING(100), allowNull: true },
+  payment_method: { type: DataTypes.STRING(100), allowNull: true },
   status: { 
     type: DataTypes.ENUM('PENDING', 'PAID', 'REJECTED'), 
     defaultValue: 'PENDING' 
@@ -145,6 +162,30 @@ const Payment = sequelize.define('Payment', {
   payment_date: { type: DataTypes.DATEONLY, defaultValue: DataTypes.NOW },
   payment_method: { type: DataTypes.STRING(50) }
 }, { tableName: 'PAYMENTS', timestamps: false });
+
+const TransactionLog = sequelize.define('TransactionLog', {
+  transaction_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  request_id: { type: DataTypes.INTEGER, allowNull: true },
+  invoice_id: { type: DataTypes.INTEGER, allowNull: true },
+  payment_id: { type: DataTypes.STRING(120), allowNull: true },
+  action: { type: DataTypes.STRING(120), allowNull: false },
+  status: { type: DataTypes.STRING(60), allowNull: false },
+  amount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+  performed_by: { type: DataTypes.STRING(200), allowNull: false, defaultValue: 'System' },
+  remarks: { type: DataTypes.TEXT, allowNull: true },
+  timestamp: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+}, {
+  tableName: 'TRANSACTION_LOGS',
+  timestamps: false,
+  hooks: {
+    beforeUpdate: () => {
+      throw new Error('Transaction logs are immutable and cannot be modified.');
+    },
+    beforeDestroy: () => {
+      throw new Error('Transaction logs are immutable and cannot be deleted.');
+    }
+  }
+});
 
 // NEW: Exception model
 const Exception = sequelize.define('Exception', {
@@ -224,6 +265,12 @@ Invoice.belongsTo(User, { as: 'Supplier', foreignKey: 'supplier_id' });
 Invoice.hasMany(Payment, { foreignKey: 'invoice_id' });
 Payment.belongsTo(Invoice, { foreignKey: 'invoice_id' });
 
+PurchaseOrder.hasMany(TransactionLog, { foreignKey: 'request_id' });
+TransactionLog.belongsTo(PurchaseOrder, { foreignKey: 'request_id' });
+
+Invoice.hasMany(TransactionLog, { foreignKey: 'invoice_id' });
+TransactionLog.belongsTo(Invoice, { foreignKey: 'invoice_id' });
+
 // NEW: relations for Exception
 PurchaseRequest.hasMany(Exception, { foreignKey: 'pr_id' });
 Exception.belongsTo(PurchaseRequest, { foreignKey: 'pr_id' });
@@ -247,8 +294,9 @@ const initDatabase = async () => {
   try {
     await sequelize.authenticate();
     console.log('Sequelize connected to PostgreSQL successfully.');
-    await sequelize.sync({ alter: true });
-    console.log('Database synced. Added new fields and Exception table.');
+
+    await sequelize.sync({ alter: false });
+    console.log('Database synced.');
   } catch (error) {
     console.error('Unable to connect to the database:', error);
   }
@@ -269,6 +317,7 @@ module.exports = {
   PurchaseOrder,
   Invoice,
   Payment,
+  TransactionLog,
   Exception,
   SupplierApprovalRequest
 };

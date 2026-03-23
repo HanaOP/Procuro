@@ -40,4 +40,28 @@ router.post('/invoices/:id/status',
   finance.updateInvoiceStatus
 );
 
+router.post('/invoices/:id/payment-order',
+  authMiddleware,
+  allowRoles('FINANCE'),
+  finance.createInvoicePaymentOrder
+);
+
+router.post('/invoices/:id/verify-payment',
+  authMiddleware,
+  allowRoles('FINANCE'),
+  finance.verifyInvoicePayment
+);
+
+router.post('/invoices/:id/payment-failed',
+  authMiddleware,
+  allowRoles('FINANCE'),
+  finance.logInvoicePaymentFailure
+);
+
+router.get('/invoices/:id/transactions',
+  authMiddleware,
+  allowRoles('FINANCE'),
+  finance.getInvoiceTransactions
+);
+
 module.exports = router;

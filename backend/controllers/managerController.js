@@ -1,4 +1,4 @@
-const { PurchaseRequest } = require('../db');
+const { PurchaseRequest, TransactionLog, Invoice, PurchaseOrder } = require('../db');
 const { Op } = require('sequelize');
 
 async function pendingRequests(req, res) {
@@ -116,5 +116,101 @@ async function clarificationsList(req, res) {
   } catch (err) { console.error(err); return res.status(500).json({ error: 'Server error' }); }
 }
 
-module.exports = { pendingRequests, highPriority, rejectedList, clarify, approve, reject, approvedList, clarificationsList };
+async function completedAuditTrails(req, res) {
+  try {
+    const { role } = req.user;
+    if (role !== 'MANAGER') return res.status(403).json({ error: 'Only managers can view this' });
+
+    const completedRows = await TransactionLog.findAll({
+      where: { status: 'Completed', request_id: { [Op.not]: null } },
+      attributes: ['request_id'],
+      group: ['request_id'],
+      raw: true,
+    });
+
+    const requestIds = completedRows
+      .map((row) => row.request_id)
+      .filter((id) => Number.isInteger(id));
+
+    if (requestIds.length === 0) {
+      return res.json([]);
+    }
+
+    const logs = await TransactionLog.findAll({
+      where: { request_id: { [Op.in]: requestIds } },
+      include: [
+        {
+          model: Invoice,
+          attributes: ['invoice_id', 'invoice_number', 'amount', 'status'],
+          required: false,
+        },
+        {
+          model: PurchaseOrder,
+          attributes: ['po_id', 'status', 'total_amount'],
+          required: false,
+        },
+      ],
+      order: [['request_id', 'DESC'], ['timestamp', 'ASC'], ['transaction_id', 'ASC']],
+    });
+
+    const grouped = logs.reduce((acc, row) => {
+      const log = row.get({ plain: true });
+      const requestId = log.request_id;
+
+      if (!acc[requestId]) {
+        acc[requestId] = {
+          requestId,
+          purchaseOrder: log.PurchaseOrder || null,
+          latestInvoice: log.Invoice || null,
+          completedAt: null,
+          amount: log.amount || null,
+          paymentId: null,
+          logs: [],
+        };
+      }
+
+      if (log.status === 'Completed') {
+        acc[requestId].completedAt = log.timestamp;
+      }
+
+      if (log.payment_id) {
+        acc[requestId].paymentId = log.payment_id;
+      }
+
+      if (log.amount != null) {
+        acc[requestId].amount = log.amount;
+      }
+
+      if (log.Invoice) {
+        acc[requestId].latestInvoice = log.Invoice;
+      }
+
+      acc[requestId].logs.push({
+        transactionId: log.transaction_id,
+        action: log.action,
+        status: log.status,
+        amount: log.amount,
+        paymentId: log.payment_id,
+        performedBy: log.performed_by,
+        remarks: log.remarks,
+        timestamp: log.timestamp,
+      });
+
+      return acc;
+    }, {});
+
+    const result = Object.values(grouped).sort((a, b) => {
+      const aTime = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+      const bTime = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+      return bTime - aTime;
+    });
+
+    return res.json(result);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+}
+
+module.exports = { pendingRequests, highPriority, rejectedList, clarify, approve, reject, approvedList, clarificationsList, completedAuditTrails };
 

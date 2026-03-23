@@ -3,9 +3,11 @@ const {
   RFQ,
   Quotation,
   PurchaseOrder,
+  Invoice,
   User,
   SupplierApprovalRequest,
 } = require('../db');
+const { Op } = require('sequelize');
 
 // ================= VIEW ALL PROCUREMENT RELEVANT REQUESTS =================
 exports.getApprovedRequests = async (req, res) => {
@@ -21,7 +23,8 @@ exports.getApprovedRequests = async (req, res) => {
           'COMPLETED'
         ]
       },
-      include: [RFQ]
+      include: [RFQ],
+      order: [['created_at', 'DESC']]
     });
 
     // Flatten for frontend convenience (ensure rfq_id is top-level if RFQ exists)
@@ -184,6 +187,136 @@ exports.markDelivered = async (req, res) => {
 
     res.json({ message: 'Marked as delivered' });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ================= PROCUREMENT SUPPLIER CLASSIFICATIONS =================
+exports.getSupplierClassifications = async (req, res) => {
+  try {
+    const procurementUserId = req.user.user_id;
+
+    // 1) Quotation uploaded only: RFQ is active and has quotations, but supplier not yet selected.
+    const quotationOnlyRequests = await PurchaseRequest.findAll({
+      where: { status: 'RFQ_SENT' },
+      include: [{
+        model: RFQ,
+        include: [{
+          model: Quotation,
+          required: true,
+          include: [{ model: User, attributes: ['user_id', 'name', 'email'] }],
+        }],
+      }],
+      order: [['created_at', 'DESC']],
+    });
+
+    const quotationUploadedOnly = quotationOnlyRequests.map((pr) => {
+      const plain = pr.get({ plain: true });
+      const quotations = plain.RFQ?.Quotations || [];
+      return {
+        pr_id: plain.pr_id,
+        item_name: plain.item_name,
+        department: plain.department,
+        rfq_id: plain.RFQ?.rfq_id || null,
+        quote_count: quotations.length,
+        suppliers: quotations.map((q) => ({
+          quotation_id: q.quotation_id,
+          supplier_id: q.supplier_id,
+          supplier_name: q.User?.name || null,
+          price: q.price,
+          submitted_at: q.submitted_at,
+        })),
+      };
+    });
+
+    // 2) Selected as supplier: selected by procurement but still under manager review cycle.
+    const selectedAsSupplier = await SupplierApprovalRequest.findAll({
+      where: {
+        procurement_user_id: procurementUserId,
+        status: { [Op.in]: ['PENDING_MANAGER_REVIEW', 'MANAGER_OBJECTED', 'CLARIFICATION_GIVEN'] },
+      },
+      include: [
+        { model: PurchaseRequest, attributes: ['pr_id', 'item_name', 'department', 'status'] },
+        { model: Quotation, attributes: ['quotation_id', 'price', 'submitted_at'] },
+        { model: User, as: 'Supplier', attributes: ['user_id', 'name', 'email'] },
+      ],
+      order: [['created_at', 'DESC']],
+    });
+
+    // 3 & 4) Approved selections split by invoice submission status.
+    const approvedSelections = await SupplierApprovalRequest.findAll({
+      where: {
+        procurement_user_id: procurementUserId,
+        status: 'APPROVED',
+      },
+      include: [
+        { model: PurchaseRequest, attributes: ['pr_id', 'item_name', 'department', 'status'] },
+        { model: Quotation, include: [{ model: RFQ, attributes: ['rfq_id'] }], attributes: ['quotation_id', 'price'] },
+        { model: User, as: 'Supplier', attributes: ['user_id', 'name', 'email'] },
+      ],
+      order: [['created_at', 'DESC']],
+    });
+
+    const invoiceSubmitted = [];
+    const invoiceNotSubmitted = [];
+
+    for (const approval of approvedSelections) {
+      const plain = approval.get({ plain: true });
+      const rfqId = plain.Quotation?.RFQ?.rfq_id;
+
+      const po = rfqId
+        ? await PurchaseOrder.findOne({
+            where: { rfq_id: rfqId, supplier_id: plain.supplier_id },
+            include: [{ model: Invoice }],
+            order: [['po_id', 'DESC']],
+          })
+        : null;
+
+      const poPlain = po ? po.get({ plain: true }) : null;
+      const invoices = poPlain?.Invoices || [];
+
+      const record = {
+        approval_id: plain.approval_id,
+        pr_id: plain.pr_id,
+        item_name: plain.PurchaseRequest?.item_name || null,
+        department: plain.PurchaseRequest?.department || null,
+        supplier_id: plain.supplier_id,
+        supplier_name: plain.Supplier?.name || null,
+        quotation_id: plain.quotation_id,
+        quoted_price: plain.Quotation?.price || null,
+        po_id: poPlain?.po_id || null,
+        po_status: poPlain?.status || null,
+        invoice_count: invoices.length,
+        invoices: invoices.map((inv) => ({
+          invoice_id: inv.invoice_id,
+          invoice_number: inv.invoice_number,
+          amount: inv.amount,
+          status: inv.status,
+          createdAt: inv.createdAt,
+        })),
+      };
+
+      if (invoices.length > 0) {
+        invoiceSubmitted.push(record);
+      } else {
+        invoiceNotSubmitted.push(record);
+      }
+    }
+
+    return res.json({
+      counts: {
+        quotationUploadedOnly: quotationUploadedOnly.length,
+        selectedAsSupplier: selectedAsSupplier.length,
+        invoiceSubmitted: invoiceSubmitted.length,
+        invoiceNotSubmitted: invoiceNotSubmitted.length,
+      },
+      quotationUploadedOnly,
+      selectedAsSupplier: selectedAsSupplier.map((a) => a.get({ plain: true })),
+      invoiceSubmitted,
+      invoiceNotSubmitted,
+    });
+  } catch (err) {
+    console.error('getSupplierClassifications error:', err);
     res.status(500).json({ error: err.message });
   }
 };

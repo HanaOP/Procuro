@@ -37,23 +37,71 @@ DB_CONFIG = {
 def get_connection():
     return psycopg2.connect(**DB_CONFIG)
 
+# ── KAGGLE DATASET INTEGRATION ───────────────────────────────────────────────
+CSV_PATH = os.path.join(os.path.dirname(__file__), "dataset", "spend_analysis_dataset.csv")
+KAGGLE_DF = None
+
+if ML_AVAILABLE and os.path.exists(CSV_PATH):
+    try:
+        KAGGLE_DF = pd.read_csv(CSV_PATH)
+        KAGGLE_DF["created_at"] = pd.to_datetime(KAGGLE_DF["PurchaseDate"])
+        # Map Kaggle columns to DB fields
+        KAGGLE_DF = KAGGLE_DF.rename(columns={
+            "ItemName": "item_name",
+            "Category": "category",
+            "Quantity": "quantity",
+            "UnitPrice": "estimated_unit_price",
+            "TotalCost": "total_amount",
+            "Buyer":     "department"
+        })
+        # Basic mapping for Buyer -> Department to ensure filters work
+        # If the buyer name isn't a department, we'll try to keep it 
+        # but the dashboard filter might miss it unless 'All' is selected.
+    except Exception as e:
+        print(f"Error loading Kaggle dataset: {e}")
+
 def fetch_all_requests(department=None, category=None):
-    conn = get_connection()
-    cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    query = """
-        SELECT pr_id, department, category, item_name, quantity,
-               estimated_unit_price, total_amount, priority, required_by, created_at, status
-        FROM   "PURCHASE_REQUESTS"
-        WHERE  status NOT IN ('REJECTED')
-    """
-    params = []
-    if department: query += " AND department = %s"; params.append(department)
-    if category:   query += " AND category = %s";   params.append(category)
-    query += " ORDER BY created_at ASC"
-    cur.execute(query, params)
-    rows = cur.fetchall()
-    cur.close(); conn.close()
-    return [dict(r) for r in rows]
+    db_rows = []
+    try:
+        conn = get_connection()
+        cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        query = """
+            SELECT pr_id, department, category, item_name, quantity,
+                   estimated_unit_price, total_amount, priority, required_by, created_at, status
+            FROM   "PURCHASE_REQUESTS"
+            WHERE  status NOT IN ('REJECTED')
+        """
+        params = []
+        if department: query += " AND department = %s"; params.append(department)
+        if category:   query += " AND category = %s";   params.append(category)
+        query += " ORDER BY created_at ASC"
+        cur.execute(query, params)
+        db_rows = [dict(r) for r in cur.fetchall()]
+        cur.close(); conn.close()
+    except Exception as e:
+        print(f"Database connection skipped (using CSV baseline only): {e}")
+
+    # Combine with Kaggle Data
+    csv_rows = []
+    if KAGGLE_DF is not None:
+        temp_df = KAGGLE_DF.copy()
+        if department and department != 'All':
+            # Note: Highly likely Kaggle Buyer names don't match exactly.
+            # We filter if there's a match, otherwise we might see nothing for that dept.
+            temp_df = temp_df[temp_df["department"] == department]
+        if category:
+            temp_df = temp_df[temp_df["category"] == category]
+        
+        csv_rows = temp_df.to_dict('records')
+        # Assign fake IDs to avoid collisions and nulls
+        for i, row in enumerate(csv_rows):
+            row['pr_id'] = 90000 + i
+            row['status'] = 'COMPLETED'
+            # Enforce float types for price and amount
+            row['estimated_unit_price'] = float(row.get('estimated_unit_price', 0))
+            row['total_amount'] = float(row.get('total_amount', 0))
+
+    return db_rows + csv_rows
 
 def confidence_label(n):
     if n >= 12: return "HIGH"

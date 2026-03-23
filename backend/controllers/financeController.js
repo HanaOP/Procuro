@@ -1,4 +1,26 @@
-const { DepartmentBudget, PurchaseRequest, Invoice, PurchaseOrder, User, RFQ } = require('../db');
+const crypto = require('crypto');
+const Razorpay = require('razorpay');
+const { Op } = require('sequelize');
+const { DepartmentBudget, PurchaseRequest, Invoice, PurchaseOrder, User, RFQ, Payment } = require('../db');
+const { TransactionLog } = require('../db');
+const { logTransaction } = require('../utils/transactionLogger');
+
+let razorpayClient = null;
+
+function getRazorpayClient() {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+  if (!keyId || !keySecret) {
+    return null;
+  }
+
+  if (!razorpayClient) {
+    razorpayClient = new Razorpay({ key_id: keyId, key_secret: keySecret });
+  }
+
+  return razorpayClient;
+}
 
 async function addBudget(req, res) {
   try {
@@ -115,6 +137,15 @@ async function updateInvoiceStatus(req, res) {
     invoice.status = status;
     await invoice.save();
 
+    await logTransaction('INVOICE_VALIDATED', req.user, status === 'REJECTED' ? 'Rejected' : 'Approved', {
+      requestId: invoice.po_id,
+      invoiceId: invoice.invoice_id,
+      amount: invoice.amount,
+      remarks: status === 'REJECTED'
+        ? 'Invoice rejected during finance validation'
+        : 'Invoice approved during finance validation',
+    });
+
     // If REJECTED, move PR back to PENDING_PROCUREMENT
     if (status === 'REJECTED') {
       const pr = invoice.PurchaseOrder?.RFQ?.PurchaseRequest;
@@ -131,4 +162,199 @@ async function updateInvoiceStatus(req, res) {
   }
 }
 
-module.exports = { addBudget, pendingRequests, approveRequest, rejectRequest, getInvoices, updateInvoiceStatus };
+async function createInvoicePaymentOrder(req, res) {
+  try {
+    if (req.user.role !== 'FINANCE') return res.status(403).json({ error: 'Only finance officers allowed' });
+
+    const { id } = req.params;
+    const invoice = await Invoice.findByPk(id, {
+      include: [{ model: User, as: 'Supplier', attributes: ['name', 'email'] }]
+    });
+
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+    if (invoice.status !== 'PENDING') {
+      return res.status(400).json({ error: `Payment can only be initiated for PENDING invoices. Current status: ${invoice.status}` });
+    }
+
+    const client = getRazorpayClient();
+    if (!client) {
+      return res.status(500).json({ error: 'Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.' });
+    }
+
+    const amountInPaise = Math.round(parseFloat(invoice.amount) * 100);
+    if (!Number.isFinite(amountInPaise) || amountInPaise <= 0) {
+      return res.status(400).json({ error: 'Invalid invoice amount for payment' });
+    }
+
+    const order = await client.orders.create({
+      amount: amountInPaise,
+      currency: 'INR',
+      receipt: `inv_${invoice.invoice_id}_${Date.now()}`.slice(0, 40),
+      notes: {
+        invoice_id: String(invoice.invoice_id),
+        invoice_number: String(invoice.invoice_number),
+      }
+    });
+
+    await logTransaction('INVOICE_VALIDATED', req.user, 'Approved', {
+      requestId: invoice.po_id,
+      invoiceId: invoice.invoice_id,
+      amount: invoice.amount,
+      remarks: 'Invoice approved and ready for payment',
+    });
+
+    await logTransaction('PAYMENT_INITIATED', req.user, 'Payment Initiated', {
+      requestId: invoice.po_id,
+      invoiceId: invoice.invoice_id,
+      amount: invoice.amount,
+      paymentId: order.id,
+      remarks: `Razorpay order created (${order.id})`,
+    });
+
+    return res.json({
+      keyId: process.env.RAZORPAY_KEY_ID,
+      order,
+      invoice: {
+        invoice_id: invoice.invoice_id,
+        invoice_number: invoice.invoice_number,
+        amount: invoice.amount,
+        supplier_name: invoice.supplier_name || invoice.Supplier?.name || '',
+        supplier_email: invoice.Supplier?.email || '',
+      }
+    });
+  } catch (err) {
+    console.error('createInvoicePaymentOrder error:', err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+async function verifyInvoicePayment(req, res) {
+  try {
+    if (req.user.role !== 'FINANCE') return res.status(403).json({ error: 'Only finance officers allowed' });
+
+    const { id } = req.params;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ error: 'Missing Razorpay payment verification fields' });
+    }
+
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({ error: 'Razorpay secret is not configured' });
+    }
+
+    const invoice = await Invoice.findByPk(id);
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+    if (invoice.status === 'PAID') {
+      return res.json({ message: 'Invoice already marked as PAID', invoice });
+    }
+
+    const expectedSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest('hex');
+
+    if (expectedSignature !== razorpay_signature) {
+      await logTransaction('PAYMENT_VERIFICATION', req.user, 'Failed', {
+        requestId: invoice.po_id,
+        invoiceId: invoice.invoice_id,
+        paymentId: razorpay_payment_id,
+        amount: invoice.amount,
+        remarks: 'Razorpay signature verification failed',
+      });
+      return res.status(400).json({ error: 'Payment signature verification failed' });
+    }
+
+    invoice.status = 'PAID';
+    await invoice.save();
+
+    await Payment.create({
+      invoice_id: invoice.invoice_id,
+      payment_method: 'RAZORPAY',
+    });
+
+    await logTransaction('PAYMENT_SUCCESS', req.user, 'Paid', {
+      requestId: invoice.po_id,
+      invoiceId: invoice.invoice_id,
+      paymentId: razorpay_payment_id,
+      amount: invoice.amount,
+      remarks: 'Razorpay payment captured successfully',
+    });
+
+    await logTransaction('WORKFLOW_COMPLETED', req.user, 'Completed', {
+      requestId: invoice.po_id,
+      invoiceId: invoice.invoice_id,
+      paymentId: razorpay_payment_id,
+      amount: invoice.amount,
+      remarks: 'Procurement workflow completed after successful payment',
+    });
+
+    return res.json({ message: 'Payment verified and invoice marked as PAID', invoice });
+  } catch (err) {
+    console.error('verifyInvoicePayment error:', err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+async function logInvoicePaymentFailure(req, res) {
+  try {
+    if (req.user.role !== 'FINANCE') return res.status(403).json({ error: 'Only finance officers allowed' });
+
+    const { id } = req.params;
+    const { razorpay_payment_id, razorpay_order_id, error_description } = req.body;
+
+    const invoice = await Invoice.findByPk(id);
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+
+    await logTransaction('PAYMENT_FAILED', req.user, 'Failed', {
+      requestId: invoice.po_id,
+      invoiceId: invoice.invoice_id,
+      paymentId: razorpay_payment_id || razorpay_order_id || null,
+      amount: invoice.amount,
+      remarks: error_description || 'Payment failed or checkout aborted',
+    });
+
+    return res.json({ message: 'Payment failure logged' });
+  } catch (err) {
+    console.error('logInvoicePaymentFailure error:', err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+async function getInvoiceTransactions(req, res) {
+  try {
+    if (req.user.role !== 'FINANCE') return res.status(403).json({ error: 'Only finance officers allowed' });
+
+    const { id } = req.params;
+    const invoice = await Invoice.findByPk(id);
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+
+    const logs = await TransactionLog.findAll({
+      where: {
+        [Op.or]: [
+          { invoice_id: id },
+          { request_id: invoice.po_id },
+        ]
+      },
+      order: [['timestamp', 'ASC'], ['transaction_id', 'ASC']],
+    });
+
+    res.json(logs);
+  } catch (err) {
+    console.error('getInvoiceTransactions error:', err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+module.exports = {
+  addBudget,
+  pendingRequests,
+  approveRequest,
+  rejectRequest,
+  getInvoices,
+  updateInvoiceStatus,
+  createInvoicePaymentOrder,
+  verifyInvoicePayment,
+  logInvoicePaymentFailure,
+  getInvoiceTransactions,
+};

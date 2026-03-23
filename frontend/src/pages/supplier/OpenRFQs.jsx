@@ -69,13 +69,20 @@ export default function OpenRFQs() {
                     <p className="text-xs text-amber-500 font-mono mt-2">
                       Deadline: {new Date(rfq.deadline).toLocaleDateString()}
                     </p>
+
+                    <p className="text-[11px] text-slate-500 font-mono mt-1">
+                      Your quotations: {rfq.my_quotation_count ?? 0}/3
+                      {' · '}
+                      Remaining: {rfq.remaining_quotations ?? 3}
+                    </p>
                   </div>
 
                   <button
                     onClick={() => handleSubmitQuote(rfq.rfq_id)}
-                    className="btn-primary text-xs px-4 py-2 shrink-0"
+                    disabled={rfq.quotation_limit_reached}
+                    className="btn-primary text-xs px-4 py-2 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Submit Quote →
+                    {rfq.quotation_limit_reached ? 'Limit Reached (3/3)' : 'Submit Quote →'}
                   </button>
                 </div>
               </div>

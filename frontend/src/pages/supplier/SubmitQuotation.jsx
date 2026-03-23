@@ -70,6 +70,9 @@ export default function SubmitQuotation() {
           {rfq_id && (
             <p className="text-sm text-slate-500 mt-1 font-mono">For RFQ #{rfq_id}</p>
           )}
+          <p className="text-xs text-slate-500 mt-2">
+            You can submit up to 3 quotations per request. Submission is blocked once an order is placed.
+          </p>
         </div>
 
         <div className="card">

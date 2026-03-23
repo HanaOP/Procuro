@@ -59,4 +59,10 @@ router.get('/exceptions',
   viewExceptions
 );
 
+router.get('/audit-trails/completed',
+  authMiddleware,
+  allowRoles('MANAGER'),
+  manager.completedAuditTrails
+);
+
 module.exports = router;

@@ -76,7 +76,7 @@ function PRCard({ r, onRFQSent }) {
             <div className="flex items-center justify-between bg-surface-800 border border-surface-700 px-4 py-3">
               <span className="font-mono text-xs text-cyan-400">RFQ sent — awaiting quotations</span>
               <button
-                onClick={() => navigate(`/procurement/quotations/${r.pr_id}`)}
+                onClick={() => navigate(`/procurement/quotations/${r.rfq_id || r.pr_id}`)}
                 className="btn-secondary text-xs px-3 py-1.5">
                 View Quotations
               </button>
@@ -110,12 +110,41 @@ export default function ProcurementRequests() {
     load()
   }
 
+  const pendingToRFQSend = requests.filter(r => r.status === 'PENDING_PROCUREMENT')
+  const rfqSentRequests = requests.filter(r => r.status === 'RFQ_SENT')
+  const orderPlacedRequests = requests.filter(r => r.status === 'ORDER_PLACED')
+
+  const renderSection = (title, subtitle, items) => (
+    <section className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-200">{title}</h2>
+          <p className="text-[11px] text-slate-500">{subtitle}</p>
+        </div>
+        <span className="text-[11px] font-mono text-amber-400">{items.length}</span>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="border border-surface-700 bg-surface-900/40 px-4 py-3 text-[11px] text-slate-500">
+          No requests in this classification.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {items.map(r => <PRCard key={r.pr_id} r={r} onRFQSent={handleRFQSent} />)}
+        </div>
+      )}
+    </section>
+  )
+
   return (
     <AppLayout>
       <div className="space-y-6">
         <div>
           <p className="section-title mb-1">Procurement</p>
           <h1 className="page-title">Finance-Approved Requests</h1>
+          <p className="text-xs text-slate-500 mt-1">
+            Classified workflow view for procurement operations.
+          </p>
         </div>
 
         {toast && <SuccessAlert message={toast} />}
@@ -124,8 +153,39 @@ export default function ProcurementRequests() {
         {loading ? <LoadingSpinner /> : requests.length === 0 ? (
           <EmptyState message="No approved requests awaiting procurement." />
         ) : (
-          <div className="space-y-2">
-            {requests.map(r => <PRCard key={r.pr_id} r={r} onRFQSent={handleRFQSent} />)}
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="card">
+                <p className="section-title text-xs mb-2">Pending to RFQ Send</p>
+                <p className="font-mono text-2xl text-amber-400">{pendingToRFQSend.length}</p>
+              </div>
+              <div className="card">
+                <p className="section-title text-xs mb-2">RFQ Sent Requests</p>
+                <p className="font-mono text-2xl text-cyan-400">{rfqSentRequests.length}</p>
+              </div>
+              <div className="card">
+                <p className="section-title text-xs mb-2">Order Placed Requests</p>
+                <p className="font-mono text-2xl text-green-400">{orderPlacedRequests.length}</p>
+              </div>
+            </div>
+
+            {renderSection(
+              'Pending to RFQ Send',
+              'Finance-approved requests waiting for RFQ dispatch.',
+              pendingToRFQSend
+            )}
+
+            {renderSection(
+              'RFQ Sent Requests',
+              'RFQs have been sent and supplier quotations are in progress.',
+              rfqSentRequests
+            )}
+
+            {renderSection(
+              'Order Placed Requests',
+              'Supplier finalized and purchase order has been placed.',
+              orderPlacedRequests
+            )}
           </div>
         )}
       </div>

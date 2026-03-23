@@ -12,11 +12,21 @@ export function AuthProvider({ children }) {
     try {
       const stored = localStorage.getItem('procuro_auth')
       if (stored) {
-        const { user, token } = JSON.parse(stored)
-        setUser(user)
-        setToken(token)
+        console.log('🔐 Found auth in localStorage, hydrating...')
+        const { user: storedUser, token: storedToken } = JSON.parse(stored)
+        if (storedUser && storedToken) {
+          setUser(storedUser)
+          setToken(storedToken)
+          console.log('✅ Auth hydration successful for:', storedUser.email)
+        } else {
+          console.warn('⚠️ Auth data in localStorage is incomplete')
+          localStorage.removeItem('procuro_auth')
+        }
+      } else {
+        console.log('ℹ️ No auth found in localStorage')
       }
-    } catch {
+    } catch (err) {
+      console.error('❌ Failed to parse auth data from localStorage:', err)
       localStorage.removeItem('procuro_auth')
     } finally {
       setLoading(false)

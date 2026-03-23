@@ -6,6 +6,7 @@ export const getApprovedList       = ()        => api.get('/manager/requests/app
 export const getRejectedList       = ()        => api.get('/manager/requests/rejected')
 export const getClarificationsList = ()        => api.get('/manager/requests/clarifications')
 export const getExceptions         = ()        => api.get('/manager/exceptions')
+export const getCompletedAuditTrails = ()      => api.get('/manager/audit-trails/completed')
 export const approveRequest        = (id)      => api.put(`/manager/requests/${id}/approve`)
 export const rejectRequest         = (id, data) => api.post(`/manager/requests/${id}/reject`, data)
 export const clarifyRequest        = (id, data) => api.post(`/manager/requests/${id}/clarify`, data)

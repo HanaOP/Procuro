@@ -12,6 +12,7 @@ const icons = {
   exceptions:   '⚠️',
   ai:           '🤖',
   supplier:     '🏭',
+  audit:        '🧾',
   newrequest:   '＋',
   requests:     '📋',
   drafts:       '📝',
@@ -43,11 +44,13 @@ const NAV_ITEMS = {
     { label: 'Clarifications',    path: '/manager/clarifications',     icon: icons.clarify },
     { label: 'Exceptions',        path: '/manager/exceptions',         icon: icons.exceptions },
     { label: 'Supplier Review',   path: '/manager/supplier-approvals', icon: icons.supplier },
+    { label: 'Audit Trail',       path: '/manager/audit-trail',        icon: icons.audit },
     { label: 'AI Analysis',       path: '/manager/ai-dashboard',       icon: icons.ai },
   ],
   FINANCE: [
     { label: 'Dashboard',   path: '/finance',         icon: icons.dashboard },
     { label: 'Pending',     path: '/finance/pending', icon: icons.pending },
+    { label: 'Manage Invoices', path: '/finance/invoices', icon: icons.finance },
     { label: 'Add Budget',  path: '/finance/budget',  icon: icons.budget },
   ],
   PROCUREMENT: [

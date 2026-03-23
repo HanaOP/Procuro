@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import AppLayout from '../../components/AppLayout'
 import { LoadingSpinner } from '../../components/Feedback'
-import { giveClarification, getMySupplierApprovals } from '../../api/procurementApi'
+import { giveClarification, getMySupplierApprovals, getSupplierClassifications } from '../../api/procurementApi'
 
 export default function SupplierApprovalStatus() {
   const [approvals, setApprovals]   = useState([])
@@ -11,13 +11,34 @@ export default function SupplierApprovalStatus() {
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage]       = useState(null)
   const [timers, setTimers]         = useState({})
+  const [classifications, setClassifications] = useState({
+    counts: {
+      quotationUploadedOnly: 0,
+      selectedAsSupplier: 0,
+      invoiceSubmitted: 0,
+      invoiceNotSubmitted: 0,
+    },
+    quotationUploadedOnly: [],
+    selectedAsSupplier: [],
+    invoiceSubmitted: [],
+    invoiceNotSubmitted: [],
+  })
   const intervalRef = useRef(null)
 
-  const fetchApprovals = () =>
-    getMySupplierApprovals()
-      .then(({ data }) => setApprovals(data))
-      .catch(console.error)
-      .finally(() => setLoading(false))
+  const fetchApprovals = async () => {
+    try {
+      const [approvalRes, classificationRes] = await Promise.all([
+        getMySupplierApprovals(),
+        getSupplierClassifications(),
+      ])
+      setApprovals(approvalRes.data)
+      setClassifications(classificationRes.data)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => { fetchApprovals() }, [])
 
@@ -71,12 +92,43 @@ export default function SupplierApprovalStatus() {
     MANAGER_OBJECTED:       '⚠️ Manager raised an objection — respond below',
     CLARIFICATION_GIVEN:    '💬 Clarification sent — awaiting manager decision',
     APPROVED:               auto ? '⚡ Auto-approved — supplier notified' : '✅ Approved by manager — supplier notified',
-    REJECTED:               '✗ Rejected — purchase request aborted',
+    REJECTED:               '✗ Not satisfactory — request returned to procurement for fresh RFQ',
   }[status] || status)
 
   const pending   = approvals.filter(a => a.status === 'PENDING_MANAGER_REVIEW')
   const objected  = approvals.filter(a => a.status === 'MANAGER_OBJECTED')
   const resolved  = approvals.filter(a => ['APPROVED', 'REJECTED', 'CLARIFICATION_GIVEN'].includes(a.status))
+
+  const classificationCards = [
+    {
+      key: 'quotationUploadedOnly',
+      title: 'Quotation Uploaded Only',
+      count: classifications?.counts?.quotationUploadedOnly || 0,
+      color: 'text-cyan-400',
+      border: 'border-cyan-800/40',
+    },
+    {
+      key: 'selectedAsSupplier',
+      title: 'Selected as Supplier',
+      count: classifications?.counts?.selectedAsSupplier || 0,
+      color: 'text-amber-400',
+      border: 'border-amber-800/40',
+    },
+    {
+      key: 'invoiceSubmitted',
+      title: 'Invoice Submitted',
+      count: classifications?.counts?.invoiceSubmitted || 0,
+      color: 'text-green-400',
+      border: 'border-green-800/40',
+    },
+    {
+      key: 'invoiceNotSubmitted',
+      title: 'Invoice Not Submitted',
+      count: classifications?.counts?.invoiceNotSubmitted || 0,
+      color: 'text-red-400',
+      border: 'border-red-800/40',
+    },
+  ]
 
   return (
     <AppLayout>
@@ -107,25 +159,87 @@ export default function SupplierApprovalStatus() {
             <p>2. Manager has 5 minutes to raise an objection</p>
             <p>3. If no objection → supplier automatically notified ⚡</p>
             <p>4. If objected → you provide clarification here</p>
-            <p>5. Manager reviews clarification → approves or aborts PR</p>
+            <p>5. Manager reviews clarification → approves supplier or sends request back for fresh RFQ</p>
           </div>
         </div>
 
-        {/* Summary */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="card">
-            <p className="section-title mb-2">Pending Review</p>
-            <p className="font-mono text-2xl font-medium text-amber-400">{pending.length}</p>
+        {/* Classification Summary */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {classificationCards.map((card) => (
+            <div key={card.key} className={`card ${card.border}`}>
+              <p className="section-title mb-2 text-xs">{card.title}</p>
+              <p className={`font-mono text-2xl font-medium ${card.color}`}>{card.count}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Detailed Classification Lists */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <div className="card border-cyan-800/30">
+            <p className="section-title mb-2">Quotation Uploaded Only</p>
+            {(classifications.quotationUploadedOnly || []).length === 0 ? (
+              <p className="text-xs text-slate-500">No requests in this bucket.</p>
+            ) : (
+              <div className="space-y-2">
+                {classifications.quotationUploadedOnly.map((r) => (
+                  <div key={r.pr_id} className="text-xs border border-slate-800 rounded p-2">
+                    <p className="text-slate-200">PR #{r.pr_id} - {r.item_name}</p>
+                    <p className="text-slate-500">Quotes received: {r.quote_count}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          <div className={`card ${objected.length > 0 ? 'border-red-800/50' : ''}`}>
-            <p className="section-title mb-2">Objections</p>
-            <p className={`font-mono text-2xl font-medium ${objected.length > 0 ? 'text-red-400' : 'text-slate-100'}`}>
-              {objected.length}
-            </p>
+
+          <div className="card border-amber-800/30">
+            <p className="section-title mb-2">Selected as Supplier</p>
+            {(classifications.selectedAsSupplier || []).length === 0 ? (
+              <p className="text-xs text-slate-500">No requests in this bucket.</p>
+            ) : (
+              <div className="space-y-2">
+                {classifications.selectedAsSupplier.map((a) => (
+                  <div key={a.approval_id} className="text-xs border border-slate-800 rounded p-2">
+                    <p className="text-slate-200">PR #{a.pr_id} - {a.PurchaseRequest?.item_name}</p>
+                    <p className="text-slate-500">Supplier: {a.Supplier?.name || `ID ${a.supplier_id}`}</p>
+                    <p className="text-amber-400">Status: {(a.status || '').replace(/_/g, ' ')}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          <div className="card">
-            <p className="section-title mb-2">Total Submitted</p>
-            <p className="font-mono text-2xl font-medium text-slate-100">{approvals.length}</p>
+
+          <div className="card border-green-800/30">
+            <p className="section-title mb-2">Invoice Submitted</p>
+            {(classifications.invoiceSubmitted || []).length === 0 ? (
+              <p className="text-xs text-slate-500">No requests in this bucket.</p>
+            ) : (
+              <div className="space-y-2">
+                {classifications.invoiceSubmitted.map((r) => (
+                  <div key={`${r.approval_id}-${r.po_id || 'po'}`} className="text-xs border border-slate-800 rounded p-2">
+                    <p className="text-slate-200">PR #{r.pr_id} - {r.item_name}</p>
+                    <p className="text-slate-500">Supplier: {r.supplier_name || `ID ${r.supplier_id}`}</p>
+                    <p className="text-green-400">Invoices: {r.invoice_count}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="card border-red-800/30">
+            <p className="section-title mb-2">Invoice Not Submitted</p>
+            {(classifications.invoiceNotSubmitted || []).length === 0 ? (
+              <p className="text-xs text-slate-500">No requests in this bucket.</p>
+            ) : (
+              <div className="space-y-2">
+                {classifications.invoiceNotSubmitted.map((r) => (
+                  <div key={`${r.approval_id}-${r.po_id || 'po'}`} className="text-xs border border-slate-800 rounded p-2">
+                    <p className="text-slate-200">PR #{r.pr_id} - {r.item_name}</p>
+                    <p className="text-slate-500">Supplier: {r.supplier_name || `ID ${r.supplier_id}`}</p>
+                    <p className="text-red-400">PO #{r.po_id || 'Not found'} - awaiting invoice</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

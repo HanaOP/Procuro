@@ -11,6 +11,7 @@ const {
   RFQ,
   User,
 } = require('../db');
+const { logTransaction } = require('../utils/transactionLogger');
 
 // ================= GET PENDING SUPPLIER SELECTIONS (for manager) =================
 exports.getPendingSupplierApprovals = async (req, res) => {
@@ -95,7 +96,7 @@ exports.approveSupplier = async (req, res) => {
     }
 
     // Create purchase order and notify supplier
-    await _finalizeSupplierSelection(approval);
+    await _finalizeSupplierSelection(approval, req.user);
 
     approval.status = 'APPROVED';
     approval.reviewed_at = new Date();
@@ -123,12 +124,22 @@ exports.rejectSupplier = async (req, res) => {
       return res.status(400).json({ error: `Cannot reject. Current status: ${approval.status}` });
     }
 
-    // Abort the purchase request
+    // Re-open the purchase request for procurement to send a fresh RFQ cycle
     const pr = await PurchaseRequest.findByPk(approval.pr_id);
     if (pr) {
-      pr.status = 'REJECTED';
-      pr.manager_comment = `Supplier selection rejected: ${reason}`;
+      pr.status = 'PENDING_PROCUREMENT';
+      pr.manager_comment = `Supplier selection not satisfactory: ${reason}`;
       await pr.save();
+    }
+
+    // Close the previous RFQ to prevent new quotes on the rejected supplier cycle.
+    const quotation = await Quotation.findByPk(approval.quotation_id);
+    if (quotation) {
+      const rfq = await RFQ.findByPk(quotation.rfq_id);
+      if (rfq) {
+        rfq.status = 'CLOSED';
+        await rfq.save();
+      }
     }
 
     approval.status = 'REJECTED';
@@ -136,24 +147,35 @@ exports.rejectSupplier = async (req, res) => {
     approval.reviewed_at = new Date();
     await approval.save();
 
-    res.json({ message: 'Supplier selection rejected. Purchase request has been aborted.', approval });
+    res.json({ message: 'Supplier selection marked not satisfactory. Request moved back to procurement as pending RFQ.', approval });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
 // ================= HELPER: Finalize supplier selection =================
-async function _finalizeSupplierSelection(approval) {
+async function _finalizeSupplierSelection(approval, actor = null) {
   const quotation = await Quotation.findByPk(approval.quotation_id, { include: [RFQ] });
   const pr        = await PurchaseRequest.findByPk(approval.pr_id);
 
   // Create Purchase Order
-  await PurchaseOrder.create({
+  const purchaseOrder = await PurchaseOrder.create({
     rfq_id:      quotation.rfq_id,
     supplier_id: approval.supplier_id,
     total_amount: quotation.price,
     status:      'ISSUED',
   });
+
+  await logTransaction(
+    'PURCHASE_ORDER_CREATED',
+    actor || 'System (AUTO_APPROVE)',
+    'Requested',
+    {
+      requestId: purchaseOrder.po_id,
+      amount: quotation.price,
+      remarks: `PO created from supplier approval #${approval.approval_id}`,
+    }
+  );
 
   // Update PR status — supplier is now officially selected
   pr.status = 'ORDER_PLACED';

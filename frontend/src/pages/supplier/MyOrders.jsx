@@ -69,12 +69,27 @@ export default function MyOrders() {
                     <span className="text-xs px-2 py-1 rounded font-mono bg-green-900/40 text-green-400 border border-green-800/40">
                       {order.status}
                     </span>
-                    <Link
-                      to={`/supplier/orders/${order.po_id}/upload-invoice`}
-                      className="btn-primary text-xs py-1.5 px-3"
-                    >
-                      📤 Upload Invoice
-                    </Link>
+
+                    {order.invoice_uploaded ? (
+                      <div className="text-right space-y-1">
+                        <span className="text-xs px-2 py-1 rounded font-mono bg-blue-900/40 text-blue-400 border border-blue-800/40 inline-block">
+                          Invoice Uploaded
+                        </span>
+                        <p className="text-[11px] text-slate-400 font-mono">
+                          {order.latest_invoice?.invoice_number || 'INV'}
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          {order.latest_invoice?.createdAt ? new Date(order.latest_invoice.createdAt).toLocaleDateString() : ''}
+                        </p>
+                      </div>
+                    ) : (
+                      <Link
+                        to={`/supplier/orders/${order.po_id}/upload-invoice`}
+                        className="btn-primary text-xs py-1.5 px-3"
+                      >
+                        📤 Upload Invoice
+                      </Link>
+                    )}
                   </div>
                 </div>
               </div>

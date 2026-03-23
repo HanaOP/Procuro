@@ -89,7 +89,7 @@ export default function SupplierApprovals() {
     setSubmitting(true)
     try {
       await api.post(`/procurement/supplier-approvals/${approval_id}/reject`, { reason })
-      setMessage({ type: 'success', text: '✗ Supplier rejected. Purchase request aborted.' })
+      setMessage({ type: 'success', text: '✗ Supplier not satisfactory. Request returned to procurement as pending RFQ.' })
       setReason(''); setSelected(null)
       fetchPending(); fetchAll()
     } catch (err) {
@@ -296,7 +296,7 @@ export default function SupplierApprovals() {
                               disabled={submitting || !reason.trim()}
                               className="px-4 py-2 text-sm bg-red-900/40 text-red-400 border border-red-800/50 rounded hover:bg-red-900/60 transition-colors disabled:opacity-50"
                             >
-                              ✗ Not Satisfactory — Abort PR
+                              ✗ Not Satisfactory — Return To Procurement
                             </button>
                             <button onClick={() => setSelected(null)} className="btn-secondary text-sm">
                               Cancel

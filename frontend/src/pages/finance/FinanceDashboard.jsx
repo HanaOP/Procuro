@@ -145,6 +145,7 @@ export default function FinanceDashboard() {
           <p className="section-title mb-3">Actions</p>
           <div className="flex flex-wrap gap-3">
             <Link to="/finance/pending" className="btn-primary">Review Pending</Link>
+            <Link to="/finance/invoices" className="btn-primary">Manage Invoices</Link>
             <Link to="/finance/budget" className="btn-secondary">Allocate Budget</Link>
           </div>
         </div>

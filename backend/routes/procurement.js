@@ -13,6 +13,11 @@ router.get('/requests',
   procurementController.getApprovedRequests
 );
 
+router.get('/supplier-classifications',
+  authMiddleware, allowRoles('PROCUREMENT'),
+  procurementController.getSupplierClassifications
+);
+
 // 2. POST send RFQ
 router.post('/requests',
   authMiddleware, allowRoles('PROCUREMENT'),

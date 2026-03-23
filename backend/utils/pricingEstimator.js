@@ -18,6 +18,8 @@ function getBasePrice(itemName = '', category = '') {
     { test: /(keyboard)/, value: 1200 },
     { test: /(mouse)/, value: 700 },
     { test: /(desk)/, value: 10000 },
+    // Keep specific table-lamp rule above generic table rule.
+    { test: /(table\s+lamp|desk\s+lamp|study\s+lamp|bedside\s+lamp)/, value: 1800 },
     { test: /(table)/, value: 8500 },
     { test: /(lamp|light)/, value: 2500 },
     { test: /(projector)/, value: 45000 },
@@ -72,6 +74,13 @@ function getSpecMultiplier(itemName = '', itemDetails = '') {
     if (/(wood|teak|oak)/.test(details)) multiplier += 0.12;
     if (/(steel|metal)/.test(details)) multiplier += 0.1;
     if (/(leather)/.test(details)) multiplier += 0.1;
+  }
+
+  if (/(lamp|light)/.test(normalizedItem)) {
+    if (/(led)/.test(details)) multiplier += 0.05;
+    if (/(dimmable|adjustable|touch|usb)/.test(details)) multiplier += 0.08;
+    if (/(smart|wifi|bluetooth)/.test(details)) multiplier += 0.12;
+    if (/(industrial|designer|premium)/.test(details)) multiplier += 0.15;
   }
 
   return Math.min(multiplier, 2.5);
