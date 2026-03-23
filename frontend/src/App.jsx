@@ -24,6 +24,8 @@ import ManagerApproved   from './pages/manager/ApprovedRequests'
 import ManagerRejected   from './pages/manager/RejectedRequests'
 import ManagerClarifications from './pages/manager/Clarifications'
 import ManagerExceptions from './pages/manager/Exceptions'
+import AIDashboard from './pages/manager/AIDashboard'
+import SupplierApprovals from './pages/manager/SupplierApprovals'
 
 // Finance
 import FinanceDashboard  from './pages/finance/FinanceDashboard'
@@ -36,6 +38,7 @@ import ProcurementRequests  from './pages/procurement/ApprovedRequests'
 import SendRFQ              from './pages/procurement/SendRFQ'
 import ViewQuotations       from './pages/procurement/ViewQuotations'
 import PurchaseOrders       from './pages/procurement/PurchaseOrders'
+import SupplierApprovalStatus from './pages/procurement/SupplierApprovalStatus'
 
 // Supplier
 import SupplierDashboard  from './pages/supplier/SupplierDashboard'
@@ -103,6 +106,8 @@ export default function App() {
           <Route path="/manager/rejected"                      element={<Guard roles={['MANAGER']}><ManagerRejected /></Guard>} />
           <Route path="/manager/clarifications"                element={<Guard roles={['MANAGER']}><ManagerClarifications /></Guard>} />
           <Route path="/manager/exceptions"                    element={<Guard roles={['MANAGER']}><ManagerExceptions /></Guard>} />
+          <Route path="/manager/ai-dashboard" element={<Guard roles={['MANAGER']}><AIDashboard /></Guard>} /> 
+          <Route path="/manager/supplier-approvals" element={<Guard roles={['MANAGER']}><SupplierApprovals /></Guard>} />
 
           {/* ── FINANCE ── */}
           <Route path="/finance"                               element={<Guard roles={['FINANCE']}><FinanceDashboard /></Guard>} />
@@ -115,7 +120,7 @@ export default function App() {
           <Route path="/procurement/rfq"                       element={<Guard roles={['PROCUREMENT']}><SendRFQ /></Guard>} />
           <Route path="/procurement/quotations/:rfq_id"        element={<Guard roles={['PROCUREMENT']}><ViewQuotations /></Guard>} />
           <Route path="/procurement/orders"                    element={<Guard roles={['PROCUREMENT']}><PurchaseOrders /></Guard>} />
-
+          <Route path="/procurement/supplier-approvals" element={<Guard roles={['PROCUREMENT']}><SupplierApprovalStatus /></Guard>} />
           {/* ── SUPPLIER ── */}
           <Route path="/supplier"                              element={<Guard roles={['SUPPLIER']}><SupplierDashboard /></Guard>} />
           <Route path="/supplier/rfqs"                         element={<Guard roles={['SUPPLIER']}><OpenRFQs /></Guard>} />

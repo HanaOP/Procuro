@@ -17,6 +17,8 @@ const NAV_ITEMS = {
     { label: 'Rejected',       path: '/manager/rejected' },
     { label: 'Clarifications', path: '/manager/clarifications' },
     { label: 'Exceptions',     path: '/manager/exceptions' },
+    { label: 'AI Analysis',    path: '/manager/ai-dashboard' },
+    { label: 'Supplier Approvals', path: '/manager/supplier-approvals' },
   ],
   FINANCE: [
     { label: 'Dashboard',     path: '/finance' },
@@ -28,6 +30,7 @@ const NAV_ITEMS = {
     { label: 'Approved PRs',    path: '/procurement/requests' },
     { label: 'Send RFQ',        path: '/procurement/rfq' },
     { label: 'Mark Delivered',  path: '/procurement/orders' },
+    { label: 'Supplier Approvals', path: '/procurement/supplier-approvals' },
   ],
   SUPPLIER: [
     { label: 'Dashboard',       path: '/supplier' },

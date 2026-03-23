@@ -1,9 +1,10 @@
 const { Sequelize, DataTypes } = require('sequelize');
 
 // 1. Initialize Connection
-const sequelize = new Sequelize('Procuro', 'postgres', 'Jyothika@5226', {
+const sequelize = new Sequelize('erp_procuro', 'postgres', 'hana123', {
   host: 'localhost',
   dialect: 'postgres',
+  port: 5433,        // ← add this line
   logging: false,
 });
 
@@ -146,6 +147,32 @@ const Exception = sequelize.define('Exception', {
   document_path: { type: DataTypes.STRING(300) }
 }, { tableName: 'EXCEPTIONS', createdAt: 'created_at', updatedAt: false });
 
+//SupplierApprovalRequest
+const SupplierApprovalRequest = sequelize.define('SupplierApprovalRequest', {
+  approval_id:               { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  quotation_id:              { type: DataTypes.INTEGER, allowNull: false },
+  pr_id:                     { type: DataTypes.INTEGER, allowNull: false },
+  supplier_id:               { type: DataTypes.INTEGER, allowNull: false },
+  procurement_user_id:       { type: DataTypes.INTEGER, allowNull: false },
+  status: {
+    type: DataTypes.ENUM(
+      'PENDING_MANAGER_REVIEW',
+      'MANAGER_OBJECTED',
+      'CLARIFICATION_GIVEN',
+      'APPROVED',
+      'REJECTED'
+    ),
+    defaultValue: 'PENDING_MANAGER_REVIEW',
+    allowNull: false
+  },
+  manager_objection:         { type: DataTypes.TEXT,    allowNull: true },
+  procurement_clarification: { type: DataTypes.TEXT,    allowNull: true },
+  selected_at:               { type: DataTypes.DATE,    defaultValue: DataTypes.NOW },
+  review_deadline:           { type: DataTypes.DATE,    allowNull: false },
+  reviewed_at:               { type: DataTypes.DATE,    allowNull: true },
+  auto_approved:             { type: DataTypes.BOOLEAN, defaultValue: false },
+}, { tableName: 'SUPPLIER_APPROVAL_REQUESTS', createdAt: 'created_at', updatedAt: false });
+ 
 // ==========================================
 // 3. DEFINE RELATIONSHIPS (FOREIGN KEYS)
 // ==========================================
@@ -196,6 +223,14 @@ Exception.belongsTo(PurchaseRequest, { foreignKey: 'pr_id' });
 User.hasMany(Exception, { foreignKey: 'employee_id' });
 Exception.belongsTo(User, { foreignKey: 'employee_id' });
 
+
+SupplierApprovalRequest.belongsTo(PurchaseRequest, { foreignKey: 'pr_id' });
+PurchaseRequest.hasMany(SupplierApprovalRequest,   { foreignKey: 'pr_id' });
+ 
+SupplierApprovalRequest.belongsTo(Quotation, { foreignKey: 'quotation_id' });
+ 
+SupplierApprovalRequest.belongsTo(User, { as: 'Supplier',        foreignKey: 'supplier_id' });
+SupplierApprovalRequest.belongsTo(User, { as: 'ProcurementUser', foreignKey: 'procurement_user_id' });
 // ==========================================
 // 4. SYNC DATABASE
 // ==========================================
@@ -226,5 +261,6 @@ module.exports = {
   PurchaseOrder,
   Invoice,
   Payment,
-  Exception
+  Exception,
+  SupplierApprovalRequest
 };

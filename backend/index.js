@@ -1,4 +1,5 @@
 require('dotenv').config();
+
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const express = require('express');
 const cors = require('cors');
@@ -16,6 +17,7 @@ const exceptionRoutes = require('./routes/exception');
 const procurementRoutes = require('./routes/procurement');
 const supplierRoutes = require('./routes/supplier');
 const aiRoutes = require('./routes/airoute');
+const predictionRoutes = require('./routes/predictionRoutes'); 
 
 app.use(cors());
 app.use(express.json());
@@ -29,6 +31,7 @@ app.use('/finance', financeRoutes);
 app.use('/exceptions', exceptionRoutes);
 app.use('/procurement', procurementRoutes);
 app.use('/supplier', supplierRoutes);
+app.use('/api/predictions', predictionRoutes);
 
 // Simple AI test route
 app.get('/ai/test-key', (req, res) => {
@@ -42,4 +45,5 @@ app.get('/', (req, res) => res.json({ message: 'Procurement API running' }));
 
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
+  require('./utils/autoApprove');
 });
