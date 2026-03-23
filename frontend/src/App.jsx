@@ -39,12 +39,14 @@ import SendRFQ              from './pages/procurement/SendRFQ'
 import ViewQuotations       from './pages/procurement/ViewQuotations'
 import PurchaseOrders       from './pages/procurement/PurchaseOrders'
 import SupplierApprovalStatus from './pages/procurement/SupplierApprovalStatus'
+import ViewQuotationsList from './pages/procurement/ViewQuotationsList'
 
 // Supplier
 import SupplierDashboard  from './pages/supplier/SupplierDashboard'
 import OpenRFQs           from './pages/supplier/OpenRFQs'
 import SubmitQuotation    from './pages/supplier/SubmitQuotation'
 import MyQuotations       from './pages/supplier/MyQuotations'
+import MySelectionStatus  from './pages/supplier/MySelectionStatus'
 
 import ProtectedRoute from './components/ProtectedRoute'
 
@@ -121,12 +123,15 @@ export default function App() {
           <Route path="/procurement/quotations/:rfq_id"        element={<Guard roles={['PROCUREMENT']}><ViewQuotations /></Guard>} />
           <Route path="/procurement/orders"                    element={<Guard roles={['PROCUREMENT']}><PurchaseOrders /></Guard>} />
           <Route path="/procurement/supplier-approvals" element={<Guard roles={['PROCUREMENT']}><SupplierApprovalStatus /></Guard>} />
+          <Route path="/procurement/view-quotations" element={<Guard roles={['PROCUREMENT']}><ViewQuotationsList /></Guard>} />
+
           {/* ── SUPPLIER ── */}
           <Route path="/supplier"                              element={<Guard roles={['SUPPLIER']}><SupplierDashboard /></Guard>} />
           <Route path="/supplier/rfqs"                         element={<Guard roles={['SUPPLIER']}><OpenRFQs /></Guard>} />
           <Route path="/supplier/rfqs/:rfq_id/quote"           element={<Guard roles={['SUPPLIER']}><SubmitQuotation /></Guard>} />
           <Route path="/supplier/quote"                        element={<Guard roles={['SUPPLIER']}><SubmitQuotation /></Guard>} />
           <Route path="/supplier/quotations"                   element={<Guard roles={['SUPPLIER']}><MyQuotations /></Guard>} />
+          <Route path="/supplier/selection-status"             element={<Guard roles={['SUPPLIER']}><MySelectionStatus /></Guard>} />
 
           {/* 404 */}
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -6,12 +6,12 @@ import { LoadingSpinner, EmptyState, ErrorAlert, SuccessAlert } from '../../comp
 
 export default function ViewQuotations() {
   const { rfq_id } = useParams()
-  const navigate = useNavigate()
+  const navigate   = useNavigate()
   const [quotations, setQuotations] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [selecting, setSelecting] = useState(null)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [loading, setLoading]       = useState(true)
+  const [selecting, setSelecting]   = useState(null)
+  const [error, setError]           = useState('')
+  const [success, setSuccess]       = useState('')
 
   useEffect(() => {
     viewQuotations(rfq_id)
@@ -24,15 +24,16 @@ export default function ViewQuotations() {
     setSelecting(quotation_id); setError('')
     try {
       await selectSupplier(quotation_id)
-      setSuccess('Supplier selected. Purchase Order created.')
-      setTimeout(() => navigate('/procurement'), 2000)
+      setSuccess('Supplier selection sent to manager for review. Manager has 2 minutes to raise an objection.')
+      setTimeout(() => navigate('/procurement/supplier-approvals'), 2500)
     } catch (e) {
       setError(e.response?.data?.error || 'Failed to select supplier')
     } finally { setSelecting(null) }
   }
 
-  // Highlight cheapest
-  const minPrice = quotations.length > 0 ? Math.min(...quotations.map(q => parseFloat(q.price))) : null
+  const minPrice = quotations.length > 0
+    ? Math.min(...quotations.map(q => parseFloat(q.price)))
+    : null
 
   return (
     <AppLayout>
@@ -40,13 +41,16 @@ export default function ViewQuotations() {
         <div>
           <p className="section-title mb-1">Procurement · RFQ #{rfq_id}</p>
           <h1 className="page-title">Supplier Quotations</h1>
+          <p className="text-xs text-slate-500 mt-1">
+            Select a supplier to send for manager review. Manager has 2 minutes to raise an objection.
+          </p>
         </div>
 
-        {error && <ErrorAlert message={error} />}
+        {error   && <ErrorAlert message={error} />}
         {success && <SuccessAlert message={success} />}
 
         {loading ? <LoadingSpinner /> : quotations.length === 0 ? (
-          <EmptyState message="No quotations submitted yet. Suppliers haven't responded." />
+          <EmptyState message="No quotations submitted yet. Suppliers haven't responded to this RFQ." />
         ) : (
           <div className="space-y-3">
             {quotations
@@ -56,6 +60,7 @@ export default function ViewQuotations() {
                 return (
                   <div key={q.quotation_id}
                     className={`card space-y-3 ${isCheapest ? 'border-green-800/50' : ''}`}>
+
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
@@ -67,28 +72,47 @@ export default function ViewQuotations() {
                           )}
                         </div>
                         <p className="text-xs text-slate-500 font-mono">
-                          Supplier ID: {q.supplier_id} · Submitted {new Date(q.created_at).toLocaleDateString()}
+                          Supplier: {q.User?.name || `ID ${q.supplier_id}`} · Submitted {new Date(q.submitted_at).toLocaleDateString()}
                         </p>
+                        {q.delivery_time && (
+                          <p className="text-xs text-slate-500 font-mono mt-0.5">
+                            Delivery: {q.delivery_time}
+                          </p>
+                        )}
+                        {q.terms && (
+                          <p className="text-xs text-slate-500 mt-1">Terms: {q.terms}</p>
+                        )}
                       </div>
                       <div className="text-right">
-                        <p className="font-mono text-xl font-medium text-amber-400">₹{parseFloat(q.price).toLocaleString()}</p>
-                        {q.delivery_time_days && (
-                          <p className="text-xs text-slate-500 font-mono">{q.delivery_time_days} days delivery</p>
-                        )}
+                        <p className="font-mono text-xl font-medium text-amber-400">
+                          ₹{parseFloat(q.price).toLocaleString()}
+                        </p>
                       </div>
                     </div>
 
+                    {/* Contract document download link */}
                     {q.contract_document && (
-                      <div className="px-3 py-2 bg-surface-800 border border-surface-700 text-xs font-mono text-slate-400">
-                        📄 Contract: {q.contract_document}
+                      <div className="px-3 py-2 bg-slate-800/50 border border-slate-700 rounded text-xs font-mono text-slate-400 flex items-center gap-2">
+                        <span>📄</span>
+                        <a
+                          href={`/uploads/${q.contract_document}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-amber-400 hover:text-amber-300 underline"
+                        >
+                          View Contract Document
+                        </a>
                       </div>
                     )}
 
                     <button
                       onClick={() => handleSelect(q.quotation_id)}
-                      disabled={selecting === q.quotation_id}
-                      className="btn-primary text-xs px-4 py-2 w-full">
-                      {selecting === q.quotation_id ? 'Creating PO...' : '✓ Select This Supplier & Create PO'}
+                      disabled={!!selecting}
+                      className="btn-primary text-xs px-4 py-2 w-full"
+                    >
+                      {selecting === q.quotation_id
+                        ? 'Sending to manager...'
+                        : '✔ Select This Supplier → Send to Manager'}
                     </button>
                   </div>
                 )

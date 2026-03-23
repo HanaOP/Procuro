@@ -5,6 +5,7 @@ import { getApprovedRequests } from '../../api/procurementApi'
 import AppLayout from '../../components/AppLayout'
 import { LoadingSpinner } from '../../components/Feedback'
 import axios from 'axios'
+import api from '../../api/axiosInstance'
 
 const predApi = axios.create({ baseURL: 'http://localhost:8001' })
 
@@ -58,6 +59,7 @@ export default function ProcurementDashboard() {
   const [aiLoading, setAiLoading]         = useState(true)
   const [deptLoading, setDeptLoading]     = useState(false)
   const [activeTab, setActiveTab]         = useState('predictions')
+  const [quotationCount, setQuotationCount] = useState(0)
 
   // Load procurement requests
   useEffect(() => {
@@ -65,6 +67,16 @@ export default function ProcurementDashboard() {
       .then(({ data }) => setRequests(data))
       .catch(console.error)
       .finally(() => setLoading(false))
+  }, [])
+
+  // Load quotation count from all RFQs (RFQ_SENT, SUPPLIER_SELECTED, ORDER_PLACED)
+  useEffect(() => {
+    api.get('/procurement/requests')
+      .then(({ data }) => {
+        const rfqPRs = data.filter(r => ['RFQ_SENT', 'SUPPLIER_SELECTED', 'ORDER_PLACED'].includes(r.status))
+        setQuotationCount(rfqPRs.length)
+      })
+      .catch(console.error)
   }, [])
 
   // Load all-department AI data
@@ -126,9 +138,16 @@ export default function ProcurementDashboard() {
 
         {/* ── Stat Cards ── */}
         {loading ? <LoadingSpinner /> : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
             <StatCard label="Ready for RFQ"     value={readyForRFQ} alert={readyForRFQ > 0} path="/procurement/requests" />
             <StatCard label="RFQ Sent"          value={rfqSent}     path="/procurement/requests" />
+            <StatCard
+              label="View Quotations"
+              value={quotationCount}
+              alert={quotationCount > 0}
+              path="/procurement/view-quotations"
+              sub="RFQs with activity"
+            />
             <StatCard label="Total in Pipeline" value={requests.length} path="/procurement/requests" />
             <StatCard
               label="Anomalies Detected"
@@ -144,6 +163,8 @@ export default function ProcurementDashboard() {
           <p className="section-title mb-3">Actions</p>
           <div className="flex flex-wrap gap-3">
             <Link to="/procurement/requests" className="btn-primary">View Approved PRs</Link>
+            <Link to="/procurement/view-quotations" className="btn-primary flex items-center gap-2"><span>📄</span> View Quotations</Link>
+            <Link to="/procurement/supplier-approvals" className="btn-secondary flex items-center gap-2"><span>⏳</span> Track Approvals</Link>
             <Link to="/procurement/rfq" className="btn-secondary">Send RFQ</Link>
             <Link to="/procurement/orders" className="btn-secondary">Mark Delivered</Link>
           </div>

@@ -7,13 +7,33 @@ const {
   SupplierApprovalRequest,
 } = require('../db');
 
-// ================= VIEW APPROVED PRs =================
+// ================= VIEW ALL PROCUREMENT RELEVANT REQUESTS =================
 exports.getApprovedRequests = async (req, res) => {
   try {
     const prs = await PurchaseRequest.findAll({
-      where: { status: 'PENDING_PROCUREMENT' }
+      where: {
+        status: [
+          'PENDING_PROCUREMENT',
+          'RFQ_SENT',
+          'SUPPLIER_SELECTED',
+          'ORDER_PLACED',
+          'DELIVERED',
+          'COMPLETED'
+        ]
+      },
+      include: [RFQ]
     });
-    res.json(prs);
+
+    // Flatten for frontend convenience (ensure rfq_id is top-level if RFQ exists)
+    const flattened = prs.map(pr => {
+      const plain = pr.get({ plain: true });
+      if (plain.RFQ) {
+        plain.rfq_id = plain.RFQ.rfq_id;
+      }
+      return plain;
+    });
+
+    res.json(flattened);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -74,8 +94,8 @@ exports.selectSupplier = async (req, res) => {
       return res.status(400).json({ error: 'This PR already has a pending supplier approval request' });
     }
 
-    // 2 minutes for demo (change to 2 * 24 * 60 * 60 * 1000 for production)
-    const REVIEW_WINDOW_MS = 2 * 60 * 1000;
+    // 5 minutes for demo (change to 2 * 24 * 60 * 60 * 1000 for production)
+    const REVIEW_WINDOW_MS = 5 * 60 * 1000;
     const review_deadline  = new Date(Date.now() + REVIEW_WINDOW_MS);
 
     const approval = await SupplierApprovalRequest.create({

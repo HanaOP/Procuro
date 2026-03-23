@@ -1,45 +1,34 @@
 /**
  * autoApprove.js
  * Runs every 30 seconds and auto-approves supplier selections
- * where manager hasn't raised an objection within the deadline.
- *
- * Add to your index.js:
- *   require('./utils/autoApprove');
+ * where manager hasn't raised an objection within 5 minutes (demo).
  */
 
-const { SupplierApprovalRequest, PurchaseRequest } = require('../db');
+const { SupplierApprovalRequest } = require('../db');
 const { Op } = require('sequelize');
 const { _finalizeSupplierSelection } = require('../controllers/supplierApprovalController');
 
 async function runAutoApprove() {
   try {
-    // Find all approvals where:
-    // 1. Status is still PENDING_MANAGER_REVIEW
-    // 2. Deadline has passed
     const expired = await SupplierApprovalRequest.findAll({
       where: {
         status:          'PENDING_MANAGER_REVIEW',
-        review_deadline: { [Op.lt]: new Date() }, // deadline < now
+        review_deadline: { [Op.lt]: new Date() },
         auto_approved:   false,
       },
     });
 
     for (const approval of expired) {
       try {
-        console.log(`⏰ Auto-approving supplier selection #${approval.approval_id} (deadline passed)`);
-
-        // Finalize: create PO, update PR status
+        console.log(`⏰ Auto-approving supplier selection #${approval.approval_id} (5 min deadline passed)`);
         await _finalizeSupplierSelection(approval);
-
-        // Mark as auto-approved
-        approval.status       = 'APPROVED';
+        approval.status        = 'APPROVED';
         approval.auto_approved = true;
-        approval.reviewed_at  = new Date();
+        approval.reviewed_at   = new Date();
         await approval.save();
-
         console.log(`✅ Auto-approved supplier for PR #${approval.pr_id}`);
       } catch (err) {
-        console.error(`❌ Auto-approve failed for approval #${approval.approval_id}:`, err.message);
+        console.error(`❌ Auto-approve failed for #${approval.approval_id}:`, err.message);
       }
     }
   } catch (err) {
@@ -47,13 +36,8 @@ async function runAutoApprove() {
   }
 }
 
-// Run every 30 seconds
-const INTERVAL_MS = 30 * 1000;
-setInterval(runAutoApprove, INTERVAL_MS);
-
-// Also run once immediately on startup
+setInterval(runAutoApprove, 30 * 1000);
 runAutoApprove();
-
-console.log('⏰ Auto-approve cron job started (checks every 30 seconds)');
+console.log('⏰ Auto-approve cron started (checks every 30s, 5 min window)');
 
 module.exports = { runAutoApprove };
