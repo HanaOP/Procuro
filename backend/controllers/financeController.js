@@ -1,4 +1,4 @@
-const { DepartmentBudget, PurchaseRequest } = require('../db');
+const { DepartmentBudget, PurchaseRequest, Invoice, PurchaseOrder, User, RFQ } = require('../db');
 
 async function addBudget(req, res) {
   try {
@@ -66,4 +66,69 @@ async function rejectRequest(req, res) {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }); }
 }
 
-module.exports = { addBudget, pendingRequests, approveRequest, rejectRequest };
+async function getInvoices(req, res) {
+  try {
+    if (req.user.role !== 'FINANCE') return res.status(403).json({ error: 'Only finance officers allowed' });
+
+    const invoices = await Invoice.findAll({
+      include: [
+        { 
+          model: PurchaseOrder,
+          include: [{
+            model: RFQ,
+            include: [{ model: PurchaseRequest }]
+          }]
+        },
+        { model: User, as: 'Supplier', attributes: ['user_id', 'name', 'email'] }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+    res.json(invoices);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+async function updateInvoiceStatus(req, res) {
+  try {
+    if (req.user.role !== 'FINANCE') return res.status(403).json({ error: 'Only finance officers allowed' });
+
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!['PAID', 'REJECTED'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    const invoice = await Invoice.findByPk(id, {
+      include: [{
+        model: PurchaseOrder,
+        include: [{
+          model: RFQ,
+          include: [{ model: PurchaseRequest }]
+        }]
+      }]
+    });
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+
+    invoice.status = status;
+    await invoice.save();
+
+    // If REJECTED, move PR back to PENDING_PROCUREMENT
+    if (status === 'REJECTED') {
+      const pr = invoice.PurchaseOrder?.RFQ?.PurchaseRequest;
+      if (pr) {
+        pr.status = 'PENDING_PROCUREMENT';
+        await pr.save();
+      }
+    }
+
+    res.json({ message: `Invoice status updated to ${status}. Purchase Request has been re-opened for procurement.` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+module.exports = { addBudget, pendingRequests, approveRequest, rejectRequest, getInvoices, updateInvoiceStatus };

@@ -23,8 +23,15 @@ export default function SupplierDashboard() {
       setQuotes(qs.value?.data || [])
       const selData = sel.value?.data || []
       setApproved(selData.filter(a => a.status === 'APPROVED').length)
+      
+      // Load orders count
+      api.get('/supplier/orders')
+        .then(({ data }) => setOrdersCount(data.length))
+        .catch(console.error)
     }).finally(() => setLoading(false))
   }, [])
+
+  const [ordersCount, setOrdersCount] = useState(0)
 
   return (
     <AppLayout>
@@ -35,7 +42,7 @@ export default function SupplierDashboard() {
           <p className="text-sm text-slate-500 mt-1">Welcome, {user?.name}</p>
         </div>
         {loading ? <LoadingSpinner /> : (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Link to="/supplier/rfqs"
               className={`card hover:border-amber-800/40 transition-colors block ${openRFQs.length > 0 ? 'border-amber-800/50' : ''}`}>
               <p className="section-title mb-2">Open RFQs</p>
@@ -49,9 +56,16 @@ export default function SupplierDashboard() {
             </Link>
             <Link to="/supplier/selection-status"
               className={`card hover:border-green-800/40 transition-colors block ${approved > 0 ? 'border-green-800/50' : ''}`}>
-              <p className="section-title mb-2">Approved / Selected</p>
+              <p className="section-title mb-2">Selected</p>
               <p className={`font-mono text-2xl font-medium ${approved > 0 ? 'text-green-400' : 'text-slate-100'}`}>
                 {approved}
+              </p>
+            </Link>
+            <Link to="/supplier/orders"
+              className={`card hover:border-blue-800/40 transition-colors block ${ordersCount > 0 ? 'border-blue-800/50' : ''}`}>
+              <p className="section-title mb-2">My Orders</p>
+              <p className={`font-mono text-2xl font-medium ${ordersCount > 0 ? 'text-blue-400' : 'text-slate-100'}`}>
+                {ordersCount}
               </p>
             </Link>
           </div>
@@ -60,9 +74,9 @@ export default function SupplierDashboard() {
           <p className="section-title mb-3">Actions</p>
           <div className="flex flex-wrap gap-3">
             <Link to="/supplier/rfqs" className="btn-primary">Browse Open RFQs</Link>
-            <Link to="/supplier/quote" className="btn-secondary">Submit Quotation</Link>
+            <Link to="/supplier/orders" className="btn-secondary">📦 My Orders & Invoices</Link>
             <Link to="/supplier/selection-status" className="btn-secondary flex items-center gap-2">
-              <span>🏆</span> My Selection Status
+              <span>🏆</span> Selection Status
             </Link>
           </div>
         </div>

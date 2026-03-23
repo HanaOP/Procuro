@@ -29,5 +29,7 @@ router.get('/rfqs',              supplierController.viewOpenRFQs);
 router.post('/quotation',        upload.single('contract_document'), supplierController.submitQuotation);
 router.get('/my-quotations',     supplierController.myQuotations);
 router.get('/selection-status',  supplierController.getMySelectionStatus);
+router.get('/orders',            supplierController.getMyOrders);
+router.post('/invoice',          upload.single('invoice_document'), supplierController.uploadInvoice);
 
 module.exports = router;

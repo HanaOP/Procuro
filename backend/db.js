@@ -128,9 +128,17 @@ const PurchaseOrder = sequelize.define('PurchaseOrder', {
 
 const Invoice = sequelize.define('Invoice', {
   invoice_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  invoice_number: { type: DataTypes.STRING, allowNull: false },
   amount: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
-  status: { type: DataTypes.STRING(50), defaultValue: 'PENDING' }
-}, { tableName: 'INVOICES', timestamps: false });
+  quantity: { type: DataTypes.INTEGER, allowNull: false },
+  status: { 
+    type: DataTypes.ENUM('PENDING', 'PAID', 'REJECTED'), 
+    defaultValue: 'PENDING' 
+  },
+  invoice_date: { type: DataTypes.DATEONLY, defaultValue: DataTypes.NOW },
+  document_path: { type: DataTypes.STRING, allowNull: true },
+  details: { type: DataTypes.TEXT, allowNull: true }
+}, { tableName: 'INVOICES', timestamps: true });
 
 const Payment = sequelize.define('Payment', {
   payment_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
@@ -211,7 +219,7 @@ PurchaseOrder.hasMany(Invoice, { foreignKey: 'po_id' });
 Invoice.belongsTo(PurchaseOrder, { foreignKey: 'po_id' });
 
 User.hasMany(Invoice, { foreignKey: 'supplier_id' });
-Invoice.belongsTo(User, { foreignKey: 'supplier_id' });
+Invoice.belongsTo(User, { as: 'Supplier', foreignKey: 'supplier_id' });
 
 Invoice.hasMany(Payment, { foreignKey: 'invoice_id' });
 Payment.belongsTo(Invoice, { foreignKey: 'invoice_id' });

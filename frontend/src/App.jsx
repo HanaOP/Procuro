@@ -31,6 +31,7 @@ import SupplierApprovals from './pages/manager/SupplierApprovals'
 import FinanceDashboard  from './pages/finance/FinanceDashboard'
 import FinancePending    from './pages/finance/PendingRequests'
 import AddBudget         from './pages/finance/AddBudget'
+import ManageInvoices    from './pages/finance/ManageInvoices'
 
 // Procurement
 import ProcurementDashboard from './pages/procurement/ProcurementDashboard'
@@ -47,6 +48,8 @@ import OpenRFQs           from './pages/supplier/OpenRFQs'
 import SubmitQuotation    from './pages/supplier/SubmitQuotation'
 import MyQuotations       from './pages/supplier/MyQuotations'
 import MySelectionStatus  from './pages/supplier/MySelectionStatus'
+import MyOrders           from './pages/supplier/MyOrders'
+import UploadInvoice      from './pages/supplier/UploadInvoice'
 
 import ProtectedRoute from './components/ProtectedRoute'
 
@@ -115,6 +118,7 @@ export default function App() {
           <Route path="/finance"                               element={<Guard roles={['FINANCE']}><FinanceDashboard /></Guard>} />
           <Route path="/finance/pending"                       element={<Guard roles={['FINANCE']}><FinancePending /></Guard>} />
           <Route path="/finance/budget"                        element={<Guard roles={['FINANCE']}><AddBudget /></Guard>} />
+          <Route path="/finance/invoices"                      element={<Guard roles={['FINANCE']}><ManageInvoices /></Guard>} />
 
           {/* ── PROCUREMENT ── */}
           <Route path="/procurement"                           element={<Guard roles={['PROCUREMENT']}><ProcurementDashboard /></Guard>} />
@@ -132,6 +136,8 @@ export default function App() {
           <Route path="/supplier/quote"                        element={<Guard roles={['SUPPLIER']}><SubmitQuotation /></Guard>} />
           <Route path="/supplier/quotations"                   element={<Guard roles={['SUPPLIER']}><MyQuotations /></Guard>} />
           <Route path="/supplier/selection-status"             element={<Guard roles={['SUPPLIER']}><MySelectionStatus /></Guard>} />
+          <Route path="/supplier/orders"                       element={<Guard roles={['SUPPLIER']}><MyOrders /></Guard>} />
+          <Route path="/supplier/orders/:po_id/upload-invoice" element={<Guard roles={['SUPPLIER']}><UploadInvoice /></Guard>} />
 
           {/* 404 */}
           <Route path="*" element={<Navigate to="/" replace />} />

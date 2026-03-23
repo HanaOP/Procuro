@@ -28,4 +28,16 @@ router.post('/requests/:id/reject',
   finance.rejectRequest
 );
 
+router.get('/invoices',
+  authMiddleware,
+  allowRoles('FINANCE'),
+  finance.getInvoices
+);
+
+router.post('/invoices/:id/status',
+  authMiddleware,
+  allowRoles('FINANCE'),
+  finance.updateInvoiceStatus
+);
+
 module.exports = router;

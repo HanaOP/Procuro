@@ -16,14 +16,15 @@ const getAllAnomalies       = ()    => predApi.get('/anomalies/all')
 const getDeptAnomalies     = (d)   => predApi.get(`/anomalies/department/${encodeURIComponent(d)}`)
 const getDeptDashboard     = (d)   => predApi.get(`/summary/dashboard/${encodeURIComponent(d)}`)
 
-function StatCard({ label, value, sub, alert }) {
-  return (
+function StatCard({ label, value, sub, alert, path }) {
+  const content = (
     <div className={`card ${alert ? 'border-amber-800/50' : ''}`}>
       <p className="section-title mb-2">{label}</p>
       <p className={`font-mono text-2xl font-medium ${alert ? 'text-amber-400' : 'text-slate-100'}`}>{value}</p>
       {sub && <p className="text-xs text-slate-500 mt-1">{sub}</p>}
     </div>
   )
+  return path ? <Link to={path} className="hover:border-amber-800/40 transition-colors block">{content}</Link> : content
 }
 
 function TrendBadge({ trend }) {
@@ -40,6 +41,7 @@ function SeverityBadge({ severity }) {
 export default function FinanceDashboard() {
   const { user } = useAuth()
   const [pending, setPending]           = useState([])
+  const [invoicesCount, setInvoicesCount] = useState(0)
   const [selectedDept, setSelectedDept] = useState('All')
   const [allForecasts, setAllForecasts] = useState([])
   const [allAnomalies, setAllAnomalies] = useState(null)
@@ -50,10 +52,16 @@ export default function FinanceDashboard() {
   const [activeTab, setActiveTab]       = useState('forecast')
 
   useEffect(() => {
-    getPendingRequests()
-      .then(({ data }) => setPending(data))
-      .catch(console.error)
+    import('../../api/financeApi').then(({ getPendingRequests, getInvoices }) => {
+      Promise.all([
+        getPendingRequests(),
+        getInvoices()
+      ]).then(([reqs, invs]) => {
+        setPending(reqs.data)
+        setInvoicesCount(invs.data.filter(i => i.status === 'PENDING').length)
+      }).catch(console.error)
       .finally(() => setLoading(false))
+    })
   }, [])
 
   useEffect(() => {
@@ -107,26 +115,26 @@ export default function FinanceDashboard() {
 
         {/* ── Stat Cards ── */}
         {loading ? <LoadingSpinner /> : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Link to="/finance/pending"
-              className={`card hover:border-amber-800/40 transition-colors block ${pending.length > 0 ? 'border-amber-800/50' : ''}`}>
-              <p className="section-title mb-2">Awaiting Approval</p>
-              <p className={`font-mono text-2xl font-medium ${pending.length > 0 ? 'text-amber-400' : 'text-slate-100'}`}>{pending.length}</p>
-            </Link>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard
+              label="Pending PRs"
+              value={pending.length}
+              alert={pending.length > 0}
+              path="/finance/pending"
+            />
+            <StatCard
+              label="Pending Invoices"
+              value={invoicesCount}
+              alert={invoicesCount > 0}
+              path="/finance/invoices"
+            />
             <div className="card">
               <p className="section-title mb-2">Total Pending Value</p>
               <p className="font-mono text-2xl font-medium text-slate-100">₹{totalValue.toLocaleString()}</p>
             </div>
             <StatCard
-              label="Total Forecasted"
+              label="Forecasted Monthly"
               value={`$${Math.round(totalForecast).toLocaleString()}`}
-              sub="all departments"
-              alert={increasingDepts > 0}
-            />
-            <StatCard
-              label="Increasing Depts"
-              value={increasingDepts}
-              sub="spending trending up"
               alert={increasingDepts > 0}
             />
           </div>
